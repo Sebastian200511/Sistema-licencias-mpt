@@ -9,8 +9,8 @@ export default function Solicitud() {
   const navigate = useNavigate();
   
   // 1. CREDENCIALES DE MERCADO PAGO (Pega las tuyas aquí)
-  const MP_PUBLIC_KEY = 'APP_USR-8960d27a-c571-4828-a15b-4f1248f2c38b'; 
-  const MP_ACCESS_TOKEN = 'APP_USR-8543008696349524-052502-16e187e28332543ee3e5ed172bacc749-3423925786';
+  const MP_PUBLIC_KEY = 'APP_USR-74c28bd0-d71b-4845-8906-6dc8f36f0923'; 
+  const MP_ACCESS_TOKEN = 'APP_USR-7471185810867704-052502-336808bd34224565476799f9c17147f1-3425824186';
   
   // Inicializamos Mercado Pago
   initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-PE' });
@@ -55,12 +55,11 @@ export default function Solicitud() {
     }
   };
 
-  // 2. FUNCIÓN QUE CREA EL COBRO EN MERCADO PAGO
-  const generarBotonDePago = async () => {
+  // 2. FUNCIÓN QUE CREA EL COBRO EN MERCADO PAGO (Ahora recibe el monto dinámico)
+  const generarBotonDePago = async (montoACobrar) => {
     setLoading(true);
     setError('');
     try {
-      // Usamos el Proxy de Vite que configuraste (/mp-api)
       const response = await fetch('/mp-api/checkout/preferences', {
         method: 'POST',
         headers: {
@@ -70,14 +69,13 @@ export default function Solicitud() {
         body: JSON.stringify({
           items: [
             {
-              title: 'Tasa por Derecho de Trámite - Licencia MPT',
+              title: montoACobrar === 180 ? 'Tasa por Derecho de Trámite - Licencia MPT' : 'Demo Prueba Técnica Yape',
               description: `Empresa: ${razonSocial}`,
-              unit_price: 180, // Puedes cambiarlo a 1 para probar
+              unit_price: montoACobrar, // Aquí inyectamos los 180 o los 2 soles
               quantity: 1,
               currency_id: 'PEN'
             }
           ],
-          // Si el pago es exitoso, regresará a esta misma página agregando ?status=approved
           back_urls: {
             success: window.location.href,
             failure: window.location.href,
@@ -261,14 +259,25 @@ export default function Solicitud() {
                   <Wallet initialization={{ preferenceId: preferenceId }} />
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={generarBotonDePago}
-                  disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-sm transition shadow-md"
-                >
-                  {loading ? 'Conectando con Mercado Pago...' : 'Pagar S/ 180.00 con Tarjeta o Yape'}
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={() => generarBotonDePago(180)}
+                    disabled={loading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-sm transition shadow-md"
+                  >
+                    {loading ? 'Conectando con Mercado Pago...' : 'Pagar S/ 180.00 Oficial'}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => generarBotonDePago(2)}
+                    disabled={loading}
+                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-lg text-xs transition border border-gray-300 shadow-sm"
+                  >
+                    {loading ? 'Conectando con Mercado Pago...' : 'Demo en Vivo: Probar con Yape (S/ 2.00)'}
+                  </button>
+                </div>
               )}
             </div>
 
