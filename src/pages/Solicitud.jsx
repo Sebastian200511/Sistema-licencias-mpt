@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { FileText, Upload, CreditCard, CheckCircle, ArrowRight } from 'lucide-react';
 
@@ -12,15 +12,17 @@ export default function Solicitud() {
   const [expedienteCreado, setExpedienteCreado] = useState(null);
   const [error, setError] = useState('');
 
+  const location = useLocation();
+  const { empresaId: idDesdeMemoria, tipoTramite, razonSocial } = location.state || {};
+
   useEffect(() => {
-    // Verificar que venimos del login con una empresa validada
-    const id = localStorage.getItem('empresa_id');
-    if (!id) {
-      navigate('/');
+    // Verificamos la memoria en lugar del localStorage
+    if (!idDesdeMemoria) {
+      navigate('/'); // Si alguien entra directo por URL, lo botamos
     } else {
-      setEmpresaId(id);
+      setEmpresaId(idDesdeMemoria);
     }
-  }, [navigate]);
+  }, [navigate, idDesdeMemoria]);
 
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
@@ -36,49 +38,57 @@ export default function Solicitud() {
     }, 1500); // Simula un procesamiento de 1.5 segundos
   };
 
-  const handleSubmitTramite = async (e) => {
-    e.preventDefault();
-    setError('');
+  // Dentro de Solicitud.jsx, actualiza la función handleSubmitTramite:
 
-    if (!planoSeleccionado) {
-      setError('Por favor, adjunte el plano estructural del local.');
-      return;
-    }
-    if (!pagoSimulado) {
-      setError('Debe realizar la simulación del pago de S/ 180.00 para proceder.');
-      return;
-    }
+const handleSubmitTramite = async (e) => {
+  e.preventDefault();
+  setError('');
 
-    try {
-      // Generar código de expediente único (Ej: MPT-2026-8492)
-      const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
-      const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
+  if (!planoSeleccionado || !pagoSimulado) {
+    setError('Faltan requisitos o el pago.');
+    return;
+  }
 
-      // Insertar trámite en Supabase
-      const { data, error: insertError } = await supabase
-        .from('expedientes')
-        .insert([
-          {
-            codigo: codigoExpediente,
-            empresa_id: empresaId,
-            plano_url: planoSeleccionado, // Guardamos el nombre del archivo adjunto
-            pago_realizado: true,
-            estado: 'Pendiente'
-          }
-        ])
-        .select()
-        .single();
+  try {
+    const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
+    const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
 
-      if (insertError) throw insertError;
+    // 1. Insertar el expediente
+    const { data: expData, error: errExp } = await supabase
+      .from('expedientes')
+      .insert([{
+        codigo: codigoExpediente,
+        empresa_id: empresaId,
+        plano_url: planoSeleccionado,
+        pago_realizado: true,
+        estado: 'Pendiente'
+      }])
+      .select().single();
 
-      // Guardar el código generado para mostrarlo en la confirmación
-      setExpedienteCreado(codigoExpediente);
+    if (errExp) throw errExp;
 
-    } catch (err) {
-      setError('Error al registrar el trámite en la base de datos.');
-      console.error(err);
-    }
-  };
+    // 2. Lógica HU04: Programación Automática de Inspección
+    // Calculamos una fecha de visita para dentro de 5 días hábiles
+    const fechaVisita = new Date();
+    fechaVisita.setDate(fechaVisita.getDate() + 7); // 7 días calendario aprox. 5 hábiles
+
+    const { error: errInsp } = await supabase
+      .from('inspecciones')
+      .insert([{
+        expediente_id: expData.id,
+        fecha_programada: fechaVisita.toISOString().split('T')[0],
+        estado: 'Programada'
+      }]);
+
+    if (errInsp) throw errInsp;
+
+    setExpedienteCreado(codigoExpediente);
+
+  } catch (err) {
+    setError('Error en la conexión con el servidor MPT.');
+    console.error(err);
+  }
+};
 
   // Si el expediente ya fue creado, mostramos la pantalla de éxito (HU03)
   if (expedienteCreado) {
