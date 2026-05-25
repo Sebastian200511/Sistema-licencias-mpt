@@ -9,8 +9,8 @@ export default function Solicitud() {
   const navigate = useNavigate();
   
   // 1. CREDENCIALES DE MERCADO PAGO (Pega las tuyas aquí)
-  const MP_PUBLIC_KEY = 'APP_USR-74c28bd0-d71b-4845-8906-6dc8f36f0923'; 
-  const MP_ACCESS_TOKEN = 'APP_USR-7471185810867704-052502-336808bd34224565476799f9c17147f1-3425824186';
+  const MP_PUBLIC_KEY = 'APP_USR-590c078f-d582-4c13-9840-3f14a4374cde'; 
+  const MP_ACCESS_TOKEN = 'APP_USR-7471185810867704-052513-36b5e7c45a15038e4f394bc9a4a8418c-3425824186';
   
   // Inicializamos Mercado Pago
   initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-PE' });
