@@ -7,20 +7,18 @@ export default function Solicitud() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // 1. SEGURIDAD: Recuperamos los datos de la memoria, no del navegador
   const { empresaId, tipoTramite, razonSocial } = location.state || {};
 
   const [loading, setLoading] = useState(false);
   const [pagoSimulado, setPagoSimulado] = useState(false);
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null);
+  const [fileObject, setFileObject] = useState(null); // NUEVO: Guarda el archivo binario real
   const [resultadoTramite, setResultadoTramite] = useState(null);
   const [error, setError] = useState('');
 
-  // Identificamos si es una renovación express (HU08)
   const esRenovacionExpress = tipoTramite === 'renovacion_automatica';
 
   useEffect(() => {
-    // Si entran por la URL sin pasar por el Login, los expulsamos a la raíz
     if (!empresaId) {
       navigate('/');
     }
@@ -28,7 +26,9 @@ export default function Solicitud() {
 
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
-      setPlanoSeleccionado(e.target.files[0].name);
+      const file = e.target.files[0];
+      setPlanoSeleccionado(file.name);
+      setFileObject(file); // Guardamos el archivo seleccionado
     }
   };
 
@@ -43,32 +43,51 @@ export default function Solicitud() {
   const handleSubmitTramite = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Validación según el tipo de trámite
-    if (!esRenovacionExpress && !planoSeleccionado) {
+    if (!esRenovacionExpress && !fileObject) {
       setError('Por favor, adjunte el plano estructural del local.');
+      setLoading(false);
       return;
     }
     if (!pagoSimulado) {
       setError('Debe realizar la simulación del pago de S/ 180.00 para proceder.');
+      setLoading(false);
       return;
     }
 
     try {
+      let planoPublicUrl = 'No requiere (Renovación)';
+
+      // --- SUBIDA REAL DEL ARCHIVO A SUPABASE STORAGE ---
+      if (!esRenovacionExpress && fileObject) {
+        const fileExt = fileObject.name.split('.').pop();
+        // Creamos un nombre único para evitar que archivos con el mismo nombre se sobreescriban
+        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('planos')
+          .upload(fileName, fileObject);
+
+        if (uploadError) throw new Error("Error al subir el archivo al almacenamiento: " + uploadError.message);
+
+        // Obtenemos la URL pública real de internet para ese archivo
+        const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
+        planoPublicUrl = urlData.publicUrl;
+      }
+
       const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
       const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
-      
-      // Si es express se aprueba directo, sino queda pendiente para inspección
       const estadoInicial = esRenovacionExpress ? 'Aprobado' : 'Pendiente';
 
-      // 1. Insertar el Expediente
+      // 1. Insertar el Expediente con la URL real de internet
       const { data: expData, error: insertError } = await supabase
         .from('expedientes')
         .insert([
           {
             codigo: codigoExpediente,
             empresa_id: empresaId,
-            plano_url: planoSeleccionado || 'No requiere (Renovación)',
+            plano_url: planoPublicUrl, // Guardamos la URL pública real del PDF
             pago_realizado: true,
             estado: estadoInicial
           }
@@ -80,10 +99,9 @@ export default function Solicitud() {
 
       let fechaVisitaStr = null;
 
-      // 2. HU04: Programación Automática en la tabla Inspecciones
+      // 2. HU04: Programación Automática (Máximo 3 días hábiles)
       if (!esRenovacionExpress) {
         const fechaVisita = new Date();
-        // Corrección: Máximo 3 días hábiles según Criterios de Aceptación
         fechaVisita.setDate(fechaVisita.getDate() + 4); 
         fechaVisitaStr = fechaVisita.toISOString().split('T')[0];
 
@@ -107,15 +125,15 @@ export default function Solicitud() {
       });
 
     } catch (err) {
-      setError('Error al registrar el trámite en la base de datos.');
+      setError(err.message || 'Error al registrar el trámite en la base de datos.');
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Si no hay empresaId, no renderizamos nada para evitar parpadeos antes del redireccionamiento
   if (!empresaId) return null;
 
-  // PANTALLA DE ÉXITO (HU03 y Finalización de HU08/HU04)
   if (resultadoTramite) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
@@ -155,7 +173,6 @@ export default function Solicitud() {
     );
   }
 
-  // PANTALLA DEL FORMULARIO
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <header className="bg-blue-900 text-white shadow-md py-4 px-6 flex justify-between items-center">
@@ -203,13 +220,12 @@ export default function Solicitud() {
                 <p className="text-xs text-gray-400 mt-2">Formatos aceptados: PDF o Imágenes (Máx. 10MB)</p>
                 {planoSeleccionado && (
                   <div className="mt-3 text-sm text-green-700 font-medium bg-green-50 py-1 px-3 rounded inline-block">
-                    ✓ Archivo: {planoSeleccionado}
+                    ✓ Archivo seleccionado: {planoSeleccionado}
                   </div>
                 )}
               </div>
             )}
 
-            {/* SECCIÓN DE PAGO (Común para ambos flujos) */}
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -241,9 +257,10 @@ export default function Solicitud() {
 
             <button
               type="submit"
-              className="w-full bg-blue-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-800 transition flex items-center justify-center gap-2 text-base shadow"
+              disabled={loading}
+              className="w-full bg-blue-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-800 transition flex items-center justify-center gap-2 text-base shadow disabled:opacity-50"
             >
-              {esRenovacionExpress ? 'Aprobar Renovación' : 'Enviar a Evaluación e Inspección'} <ArrowRight className="w-5 h-5" />
+              {loading ? 'Registrando todo en la nube...' : esRenovacionExpress ? 'Aprobar Renovación' : 'Enviar a Evaluación e Inspección'} <ArrowRight className="w-5 h-5" />
             </button>
           </form>
         </div>

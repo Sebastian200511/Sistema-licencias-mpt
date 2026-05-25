@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { ShieldCheck, ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, LogOut, Eye, X, Download } from 'lucide-react';
+import { ShieldCheck, ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, LogOut, ExternalLink } from 'lucide-react';
 
 export default function Inspector() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -9,9 +9,6 @@ export default function Inspector() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
-  
-  // Estados para el nuevo Visor de Planos Estructurales
-  const [modalPlano, setModalPlano] = useState({ abierto: false, nombreArchivo: '' });
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -38,7 +35,6 @@ export default function Inspector() {
     }
   };
 
-  // CORRECCIÓN HU11: Modificamos la consulta para traer la inspección vinculada (HU04)
   const cargarExpedientes = async () => {
     setLoading(true);
     try {
@@ -80,7 +76,7 @@ export default function Inspector() {
       let fechaSegundaVisita = null;
       if (nuevoEstado === 'Observado') {
         const hoy = new Date();
-        hoy.setDate(hoy.getDate() + 42); // 30 días hábiles aproximados
+        hoy.setDate(hoy.getDate() + 42); 
         fechaSegundaVisita = hoy.toISOString().split('T')[0];
       }
 
@@ -187,9 +183,11 @@ export default function Inspector() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {expedientes.map((exp) => {
-              // Extraemos la fecha autoprogramada de la HU04
               const inspeccionAsignada = exp.inspecciones && exp.inspecciones[0];
               
+              // Verificamos si es una URL real de internet o texto heredado de pruebas anteriores
+              const tienePlanoUrlReal = exp.plano_url && exp.plano_url.startsWith('http');
+
               return (
                 <div key={exp.id} className="bg-white rounded-xl shadow border-l-4 border-blue-900 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="space-y-1 flex-1">
@@ -206,7 +204,6 @@ export default function Inspector() {
                     <h3 className="text-base font-bold text-slate-700">{exp.empresas?.razon_social}</h3>
                     <p className="text-xs text-slate-500">RUC: {exp.empresas?.ruc} | Dirección: {exp.empresas?.domicilio_fiscal}</p>
                     
-                    {/* IMPLEMENTACIÓN HU11: Mostrar fecha programada de la agenda */}
                     {inspeccionAsignada && (
                       <div className="mt-2 inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 px-2.5 py-1 rounded text-xs font-semibold border border-blue-200">
                         <Calendar className="w-3.5 h-3.5" /> 
@@ -214,18 +211,25 @@ export default function Inspector() {
                       </div>
                     )}
 
-                    {/* IMPLEMENTACIÓN SOLUCIÓN: Botón interactivo para ver planos */}
+                    {/* ENLACE REAL DE DESCARGA O APERTURA (Cero simulaciones) */}
                     <div className="pt-2">
-                      <button 
-                        onClick={() => setModalPlano({ abierto: true, nombreArchivo: exp.plano_url })}
-                        className="inline-flex items-center gap-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1 px-2.5 rounded border border-slate-300 transition"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> Evaluar Plano Adjunto: {exp.plano_url}
-                      </button>
+                      {tienePlanoUrlReal ? (
+                        <a 
+                          href={exp.plano_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2 px-3 rounded-lg border border-blue-200 transition"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Abrir/Descargar Plano Original (PDF/Imagen)
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic bg-slate-50 p-1.5 border rounded">
+                          Archivo: {exp.plano_url} (Registro antiguo sin Storage)
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Acciones del Inspector */}
                   <div className="flex-shrink-0">
                     {exp.estado === 'Pendiente' ? (
                       <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -269,64 +273,6 @@ export default function Inspector() {
           </div>
         )}
       </main>
-
-      {/* MODAL INTERACTIVO: Visor de Planos Estructurales */}
-      {modalPlano.abierto && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
-            {/* Cabecera del Modal */}
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="text-blue-400 w-5 h-5" />
-                <h3 className="font-bold text-sm sm:text-base tracking-wide">Visor Técnico Municipal de Planos</h3>
-              </div>
-              <button 
-                onClick={() => setModalPlano({ abierto: false, nombreArchivo: '' })}
-                className="text-slate-400 hover:text-white p-1 rounded transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Contenido del Plano Estructural */}
-            <div className="p-6 bg-slate-50 flex flex-col items-center justify-center min-h-[300px] text-center border-b border-slate-200">
-              {/* Cuadro de simulación de plano de arquitectura CAD */}
-              <div className="w-full max-w-md bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl p-8 text-slate-400 font-mono text-xs relative overflow-hidden shadow-inner mb-4">
-                <div className="absolute top-2 left-2 text-[10px] text-slate-500">MPT_CAD_VIEWER_V2.0</div>
-                <div className="border border-slate-700 p-4 rounded bg-slate-900/50">
-                  <p className="text-blue-400 font-bold border-b border-slate-700 pb-1 mb-2 uppercase">📊 {modalPlano.nombreArchivo}</p>
-                  <p className="text-left">--------------------------------------</p>
-                  <p className="text-left">ÁREA TOTAL: 120.50 m²</p>
-                  <p className="text-left">AFORO MÁXIMO: 45 PERSONAS</p>
-                  <p className="text-left">ZONA: TRUJILLO METROPOLITANO</p>
-                  <p className="text-left">REQUISITO: INSPECCIÓN DE DEFENSA CIVIL</p>
-                  <p className="text-left">--------------------------------------</p>
-                </div>
-                <div className="mt-4 text-green-400 font-semibold flex items-center justify-center gap-1 bg-green-950/40 py-1.5 rounded">
-                  ✓ Verificación de firma digital exitosa
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 font-medium">Documento oficial cargado por el contribuyente para trámite de Licencia de Funcionamiento.</p>
-            </div>
-
-            {/* Botones de Acción Inferiores */}
-            <div className="p-4 bg-white flex justify-end gap-3">
-              <button 
-                onClick={() => alert(`Descargando archivo local: ${modalPlano.nombreArchivo}`)}
-                className="flex items-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold py-2 px-4 rounded-xl text-xs transition shadow"
-              >
-                <Download className="w-4 h-4" /> Descargar Plano Original
-              </button>
-              <button 
-                onClick={() => setModalPlano({ abierto: false, nombreArchivo: '' })}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-xl text-xs transition"
-              >
-                Cerrar Visor
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
