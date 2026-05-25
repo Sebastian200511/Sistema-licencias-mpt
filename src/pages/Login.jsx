@@ -1,126 +1,216 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Building2 } from 'lucide-react';
+import { Building2, Search, CheckCircle2 } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({ ruc: '', razon_social: '', domicilio_fiscal: '' });
+  const [ruc, setRuc] = useState('');
+  const [empresaValidada, setEmpresaValidada] = useState(null);
   const [error, setError] = useState('');
+  const [buscandoSunat, setBuscandoSunat] = useState(false);
+  const [ingresando, setIngresando] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  // CONSUMO DE API REAL (Petición HTTP a internet)
+  const consultarAPI_SUNAT = async (numeroRuc) => {
+    try {
+      // Hacemos una petición real GET a un endpoint público peruano que consulta a SUNAT
+      const response = await fetch(`https://api.apis.net.pe/v1/ruc?numero=${numeroRuc}`);
+
+      // Si el servidor responde con error (ej. error 404 porque el RUC no existe)
+      if (!response.ok) {
+        throw new Error('El RUC ingresado no existe o no se encuentra disponible en SUNAT.');
+      }
+
+      // Parseamos la respuesta real a JSON
+      const data = await response.json();
+
+      // Validamos si la empresa está de baja
+      if (data.estado !== 'ACTIVO') {
+        throw new Error(`El RUC se encuentra en estado: ${data.estado}. No apto para trámite.`);
+      }
+
+      // Mapeamos los datos reales extraídos de internet a nuestra aplicación
+      return {
+        ruc: data.numeroDocumento,
+        razonSocial: data.nombre,
+        domicilioFiscal: data.direccion || 'Dirección no especificada en el registro',
+        estado: data.estado,
+        condicion: data.condicion
+      };
+    } catch (error) {
+      // Capturamos caídas de red o errores lanzados arriba
+      throw new Error(error.message === 'Failed to fetch' 
+        ? 'Error de conexión: No se pudo conectar con el servidor externo.' 
+        : error.message);
+    }
   };
 
-  const handleSubmit = async (e) => {
+  const handleConsultarRUC = async (e) => {
     e.preventDefault();
     setError('');
+    setEmpresaValidada(null);
 
-    // Validación básica
-    if (formData.ruc.length !== 11) {
-      setError('El RUC debe tener 11 dígitos.');
+    if (ruc.length !== 11) {
+      setError('El RUC debe tener exactamente 11 dígitos numéricos.');
       return;
     }
 
+    setBuscandoSunat(true);
+
     try {
-      // 1. Buscamos si la empresa ya existe en la base de datos
-      let { data: empresa, error: fetchError } = await supabase
+      // 1. Consumir la "API de SUNAT"
+      const datosSunat = await consultarAPI_SUNAT(ruc);
+      setEmpresaValidada(datosSunat);
+    } catch (err) {
+      setError(err.message || 'Error al conectar con los servidores de SUNAT.');
+    } finally {
+      setBuscandoSunat(false);
+    }
+  };
+
+  const handleSubmitFinal = async (e) => {
+    e.preventDefault();
+    if (!empresaValidada) return;
+    
+    setIngresando(true);
+    setError('');
+
+    try {
+      // 2. Buscamos si la empresa ya existe en nuestra base de datos (Supabase)
+      let { data: empresaBD, error: fetchError } = await supabase
         .from('empresas')
         .select('*')
-        .eq('ruc', formData.ruc)
+        .eq('ruc', empresaValidada.ruc)
         .single();
 
-      // 2. Si no existe, la creamos (Simulando validación exitosa de SUNAT)
-      if (!empresa) {
+      // 3. Si es la primera vez que entra, la guardamos en nuestra BD
+      if (!empresaBD) {
         const { data: newEmpresa, error: insertError } = await supabase
           .from('empresas')
           .insert([{ 
-            ruc: formData.ruc, 
-            razon_social: formData.razon_social, 
-            domicilio_fiscal: formData.domicilio_fiscal 
+            ruc: empresaValidada.ruc, 
+            razon_social: empresaValidada.razonSocial, 
+            domicilio_fiscal: empresaValidada.domicilioFiscal 
           }])
           .select()
           .single();
           
         if (insertError) throw insertError;
-        empresa = newEmpresa;
+        empresaBD = newEmpresa;
       }
 
-      // Guardamos el ID de la empresa en el navegador temporalmente y avanzamos
-      localStorage.setItem('empresa_id', empresa.id);
+      // 4. Guardamos la sesión y pasamos a la HU02
+      localStorage.setItem('empresa_id', empresaBD.id);
       navigate('/solicitud');
 
     } catch (err) {
-      setError('Ocurrió un error al conectar con el servidor.');
+      setError('Error interno al registrar la empresa en el sistema municipal.');
       console.error(err);
+    } finally {
+      setIngresando(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-        <div className="flex flex-col items-center mb-6">
-          <div className="bg-blue-600 p-3 rounded-full mb-3">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-md border-t-4 border-blue-800">
+        <div className="flex flex-col items-center mb-6 text-center">
+          <div className="bg-blue-900 p-3 rounded-full mb-3 shadow-md">
             <Building2 className="text-white w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">Trámite de Licencia</h2>
-          <p className="text-gray-500 text-sm mt-1">Municipalidad Provincial</p>
+          <h2 className="text-2xl font-bold text-gray-800">Mesa de Partes Virtual</h2>
+          <p className="text-gray-500 text-sm mt-1">Municipalidad Provincial de Trujillo</p>
         </div>
 
-        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-medium border border-red-200">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">RUC de la Empresa</label>
+        {/* Formulario 1: Consulta a SUNAT */}
+        <form onSubmit={handleConsultarRUC} className="mb-6">
+          <label className="block text-sm font-bold text-gray-700 mb-1">RUC de la Empresa</label>
+          <div className="flex gap-2">
             <input 
               type="number" 
-              name="ruc" 
-              value={formData.ruc} 
-              onChange={handleChange} 
+              value={ruc} 
+              onChange={(e) => setRuc(e.target.value)} 
               required 
-              className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" 
-              placeholder="Ej. 20123456789"
+              disabled={empresaValidada !== null || buscandoSunat}
+              className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-blue-800 disabled:bg-gray-100 disabled:text-gray-500" 
+              placeholder="Ingrese los 11 dígitos"
             />
+            {!empresaValidada && (
+              <button 
+                type="submit" 
+                disabled={buscandoSunat}
+                className="bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition flex items-center gap-2 disabled:opacity-70"
+              >
+                {buscandoSunat ? 'Consultando...' : <><Search className="w-4 h-4"/> SUNAT</>}
+              </button>
+            )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Razón Social</label>
-            <input 
-              type="text" 
-              name="razon_social" 
-              value={formData.razon_social} 
-              onChange={handleChange} 
-              required 
-              className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" 
-              placeholder="Ej. Mi Empresa S.A.C."
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Domicilio Fiscal</label>
-            <input 
-              type="text" 
-              name="domicilio_fiscal" 
-              value={formData.domicilio_fiscal} 
-              onChange={handleChange} 
-              required 
-              className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" 
-              placeholder="Ej. Av. Principal 123"
-            />
-          </div>
-          
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">
-            Ingresar y Validar
-          </button>
         </form>
-        {/* Enlace al Seguimiento - Pégalo justo debajo del form */}
-        <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-          <p className="text-sm text-gray-600 mb-2">¿Ya inició su trámite anteriormente?</p>
-          <button 
-            onClick={() => navigate('/seguimiento')}
-            className="w-full bg-white border border-blue-600 text-blue-700 font-bold py-2 px-4 rounded hover:bg-blue-50 transition"
-          >
-            Consultar Estado de Expediente
-          </button>
-        </div>
+
+        {/* Datos autocompletados (Solo de lectura) */}
+        {empresaValidada && (
+          <form onSubmit={handleSubmitFinal} className="space-y-4 animate-fade-in">
+            <div className="bg-green-50 border border-green-200 p-3 rounded-lg flex items-start gap-3 mb-4">
+              <CheckCircle2 className="text-green-600 w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-green-800">RUC Validado Correctamente</p>
+                <p className="text-xs text-green-700">Estado: {empresaValidada.estado} | Condición: {empresaValidada.condicion}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase">Razón Social Obtenida</label>
+              <input 
+                type="text" 
+                value={empresaValidada.razonSocial} 
+                readOnly 
+                className="mt-1 w-full p-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-700 font-medium cursor-not-allowed" 
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase">Domicilio Fiscal Obtenido</label>
+              <input 
+                type="text" 
+                value={empresaValidada.domicilioFiscal} 
+                readOnly 
+                className="mt-1 w-full p-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-700 font-medium cursor-not-allowed" 
+              />
+            </div>
+            
+            <div className="pt-4 flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => { setEmpresaValidada(null); setRuc(''); }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition"
+              >
+                Cambiar RUC
+              </button>
+              <button 
+                type="submit" 
+                disabled={ingresando}
+                className="flex-1 bg-blue-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-800 transition shadow-md disabled:opacity-70"
+              >
+                {ingresando ? 'Iniciando Trámite...' : 'Continuar Solicitud'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Enlace al Seguimiento (HU09) */}
+        {!empresaValidada && (
+          <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p className="text-sm text-gray-600 mb-3">¿Ya tiene un trámite en curso?</p>
+            <button 
+              onClick={() => navigate('/seguimiento')}
+              className="w-full bg-white border-2 border-blue-800 text-blue-900 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-50 transition"
+            >
+              Consultar Estado de Expediente
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
