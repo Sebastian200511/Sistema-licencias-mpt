@@ -5,7 +5,14 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        mpt: {
+          blue: '#1e3a8a', // Azul institucional
+          gold: '#eab308', // Dorado/Amarillo de acento
+        }
+      }
+    },
   },
   plugins: [],
 }
