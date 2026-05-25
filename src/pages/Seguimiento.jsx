@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download } from 'lucide-react';
-import jsPDF from 'jspdf'; // <- Importamos la librería de PDFs
+import jsPDF from 'jspdf'; 
 
 export default function Seguimiento() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ ruc: '', codigo: '' });
   const [tramite, setTramite] = useState(null);
   const [empresa, setEmpresa] = useState(null);
+  const [ultimaInspeccion, setUltimaInspeccion] = useState(null); // NUEVO: Para guardar la inspección
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,17 +17,25 @@ export default function Seguimiento() {
     e.preventDefault();
     setError('');
     setTramite(null);
+    setUltimaInspeccion(null);
     setLoading(true);
 
     try {
+      // CORRECCIÓN: Ahora también traemos la tabla de inspecciones asociada
       const { data: expData, error: expError } = await supabase
         .from('expedientes')
-        .select('*, empresas ( ruc, razon_social, domicilio_fiscal )')
+        .select('*, empresas ( ruc, razon_social, domicilio_fiscal ), inspecciones (*)')
         .eq('codigo', formData.codigo.trim().toUpperCase())
         .single();
 
       if (expError || !expData) throw new Error('Expediente no encontrado.');
       if (expData.empresas.ruc !== formData.ruc.trim()) throw new Error('El RUC no coincide.');
+
+      // Ordenamos para obtener siempre la inspección más reciente
+      if (expData.inspecciones && expData.inspecciones.length > 0) {
+        const inspeccionesOrdenadas = expData.inspecciones.sort((a, b) => b.id - a.id);
+        setUltimaInspeccion(inspeccionesOrdenadas[0]);
+      }
 
       setTramite(expData);
       setEmpresa(expData.empresas);
@@ -37,28 +46,23 @@ export default function Seguimiento() {
     }
   };
 
-  // Función para generar y descargar el PDF oficial de la MPT
   const generarLicenciaPDF = () => {
     const doc = new jsPDF();
-    
-    // Fechas de vigencia (1 año exacto según regla de negocio)
     const fechaEmision = new Date();
     const fechaVencimiento = new Date();
     fechaVencimiento.setFullYear(fechaEmision.getFullYear() + 1);
 
-    // Diseño del Documento
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.setTextColor(30, 58, 138); // Azul institucional MPT
+    doc.setTextColor(30, 58, 138); 
     doc.text("MUNICIPALIDAD PROVINCIAL DE TRUJILLO", 105, 30, { align: "center" });
     
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
     doc.text("LICENCIA DE FUNCIONAMIENTO DEFINITIVA", 105, 40, { align: "center" });
     
-    doc.line(20, 45, 190, 45); // Línea separadora
+    doc.line(20, 45, 190, 45); 
 
-    // Datos del Expediente y Empresa
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     
@@ -73,7 +77,6 @@ export default function Seguimiento() {
     doc.text(`RUC: ${empresa.ruc}`, 20, 105);
     doc.text(`Ubicación del Local: ${empresa.domicilio_fiscal}`, 20, 115);
     
-    // Cuadro de Vigencia
     doc.setFillColor(240, 248, 255);
     doc.rect(20, 135, 170, 25, "F");
     doc.setFont("helvetica", "bold");
@@ -81,14 +84,12 @@ export default function Seguimiento() {
     doc.setFont("helvetica", "normal");
     doc.text(`Válido hasta: ${fechaVencimiento.toLocaleDateString()}`, 105, 153, { align: "center" });
 
-    // Firmas y Sellos (Simulación)
     doc.line(60, 220, 150, 220);
     doc.setFont("helvetica", "bold");
     doc.text("Subgerencia de Licencias y Comercialización", 105, 227, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.text("Municipalidad Provincial de Trujillo", 105, 233, { align: "center" });
 
-    // Descargar el archivo
     doc.save(`Licencia_MPT_${tramite.codigo}.pdf`);
   };
 
@@ -96,7 +97,7 @@ export default function Seguimiento() {
     switch(estado) {
       case 'Pendiente': return { color: 'text-yellow-600', bg: 'bg-yellow-100', icon: <Clock className="w-10 h-10"/>, texto: 'En Evaluación Técnica' };
       case 'Aprobado': return { color: 'text-green-600', bg: 'bg-green-100', icon: <CheckCircle className="w-10 h-10"/>, texto: 'Trámite Aprobado' };
-      case 'Observado': return { color: 'text-orange-600', bg: 'bg-orange-100', icon: <AlertCircle className="w-10 h-10"/>, texto: 'Local Observado (30 días)' };
+      case 'Observado': return { color: 'text-orange-600', bg: 'bg-orange-100', icon: <AlertCircle className="w-10 h-10"/>, texto: 'Local Observado (Plazo 30 días)' };
       case 'Denegado': return { color: 'text-red-600', bg: 'bg-red-100', icon: <XCircle className="w-10 h-10"/>, texto: 'Licencia Denegada' };
       default: return { color: 'text-gray-600', bg: 'bg-gray-100', icon: <FileText className="w-10 h-10"/>, texto: estado };
     }
@@ -159,17 +160,36 @@ export default function Seguimiento() {
               <h3 className={`text-2xl font-bold ${getStatusUI(tramite.estado).color} mb-2`}>
                 {getStatusUI(tramite.estado).texto}
               </h3>
+
+              {/* BLOQUE DE OBSERVACIONES PARA EL DUEÑO DEL NEGOCIO */}
+              {tramite.estado === 'Observado' && ultimaInspeccion && (
+                <div className="mt-4 p-5 bg-orange-50 border border-orange-200 rounded-lg text-left w-full shadow-inner">
+                  <p className="text-sm font-bold text-orange-900 flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5" /> Motivo de la Observación Técnica:
+                  </p>
+                  <p className="text-sm text-orange-800 italic bg-white p-3 rounded border border-orange-100">
+                    "{ultimaInspeccion.observaciones}"
+                  </p>
+                  <div className="mt-4 pt-3 border-t border-orange-200 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-orange-700" />
+                    <p className="text-xs text-orange-800 font-semibold">
+                      El inspector realizará una segunda visita el: <strong>{ultimaInspeccion.fecha_segunda_visita}</strong>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {tramite.estado === 'Pendiente' && (
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left w-full">
-                      <p className="text-sm font-bold text-blue-900 flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Próxima Inspección Municipal
-                </p>
-                      <p className="text-sm text-blue-700 mt-1">
-                       Su local ha sido programado para una inspección técnica. Por favor, mantenga sus planos y documentación a la mano.
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left w-full">
+                  <p className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> Próxima Inspección Municipal
+                  </p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Su local ha sido programado para una inspección técnica. Por favor, mantenga sus planos y documentación a la mano.
                   </p>
                 </div>
-                )}
-              {/* Botón Mágico de Generación de PDF (Solo visible si está Aprobado) */}
+              )}
+              
               {tramite.estado === 'Aprobado' && (
                 <button 
                   onClick={generarLicenciaPDF}

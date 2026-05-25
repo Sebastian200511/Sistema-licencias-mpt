@@ -258,19 +258,22 @@ export default function Inspector() {
                         </button>
                       </div>
                     ) : exp.estado === 'Observado' ? (
-                      <div className="flex gap-2 w-full md:w-auto">
-                        <button 
-                          onClick={() => actualizarEstadoTramite(exp.id, 'Aprobado')}
-                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow"
-                        >
-                          <ClipboardCheck className="w-4 h-4" /> Subsanado (Aprobar)
-                        </button>
-                        <button 
-                          onClick={() => actualizarEstadoTramite(exp.id, 'Denegado')}
-                          className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow"
-                        >
-                          <FileX className="w-4 h-4" /> Denegar Solicitud
-                        </button>
+                      <div className="flex flex-col gap-2 w-full md:w-auto border border-orange-200 bg-orange-50 p-2.5 rounded-lg shadow-sm">
+                        <span className="text-xs font-bold text-orange-800 text-center uppercase tracking-wider">Acciones de 2da Visita (HU07)</span>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => actualizarEstadoTramite(exp.id, 'Aprobado')}
+                            className="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow flex-1"
+                          >
+                            <ClipboardCheck className="w-4 h-4" /> Subsanado
+                          </button>
+                          <button 
+                            onClick={() => actualizarEstadoTramite(exp.id, 'Denegado')}
+                            className="flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow flex-1"
+                          >
+                            <FileX className="w-4 h-4" /> Denegar
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-xs text-slate-400 italic font-medium border border-slate-200 py-1 px-3 rounded bg-slate-50">
