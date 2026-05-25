@@ -11,46 +11,44 @@ export default function Login() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // CONSUMO DE API REAL (Directo a la v2 oficial sin proxy)
+  // CONSUMO DE API REAL (Usando apiperu.dev - Compatible con React/CORS)
   const consultarAPI_SUNAT = async (numeroRuc) => {
     try {
-      // 1. Tu llave de seguridad real de apis.net.pe
-      const TU_TOKEN = 'sk_15825.U4NzHHB93F8EuzO9HISC5KLm4rNPWhxL'; 
+      // 1. Pega aquí tu nuevo Token de apiperu.dev
+      const TU_NUEVO_TOKEN = 'be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970'; 
       
-      // 2. Apuntamos a la versión 2 (v2) que soporta peticiones directas desde React
-      const urlAPI = `https://api.apis.net.pe/v2/sunat/ruc?numero=${numeroRuc}`;
+      const urlAPI = `https://apiperu.dev/api/ruc/${numeroRuc}`;
 
-      // 3. Petición HTTP directa enviando tu credencial
       const response = await fetch(urlAPI, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Authorization': `Bearer ${TU_TOKEN}`
+          'Authorization': `Bearer ${TU_NUEVO_TOKEN}`
         }
       });
 
-      if (!response.ok) {
-        throw new Error('El RUC no existe en SUNAT o el Token ingresado es incorrecto.');
-      }
-
       const data = await response.json();
 
-      // Validación de regla de negocio (HU01)
-      if (data.estado !== 'ACTIVO') {
-        throw new Error(`El RUC se encuentra en estado: ${data.estado}. No apto para trámite.`);
+      if (!data.success) {
+        throw new Error('El RUC no existe en SUNAT o no es válido.');
       }
 
-      // Mapeamos los datos de la v2 a nuestro sistema
+      // Validación de regla de negocio (HU01)
+      if (data.data.estado !== 'ACTIVO') {
+        throw new Error(`El RUC se encuentra en estado: ${data.data.estado}. No apto para trámite.`);
+      }
+
+      // Mapeamos los datos reales a nuestro sistema
       return {
-        ruc: data.numeroDocumento,
-        razonSocial: data.razonSocial, // En la v2 este campo se llama razonSocial
-        domicilioFiscal: data.direccion || 'Dirección no especificada en el padrón',
-        estado: data.estado,
-        condicion: data.condicion
+        ruc: data.data.ruc,
+        razonSocial: data.data.nombre_o_razon_social,
+        domicilioFiscal: data.data.direccion_completa || 'Dirección no especificada',
+        estado: data.data.estado,
+        condicion: data.data.condicion
       };
     } catch (error) {
       throw new Error(error.message === 'Failed to fetch' 
-        ? 'Error de conexión: Revisa tu conexión a internet o asegúrate de haber pegado bien tu Token.' 
+        ? 'Error de conexión con la API de consulta.' 
         : error.message);
     }
   };
