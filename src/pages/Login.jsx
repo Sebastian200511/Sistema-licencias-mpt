@@ -11,47 +11,46 @@ export default function Login() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // CONSUMO DE API REAL (Con túnel CORS y Token Oficial)
+  // CONSUMO DE API REAL (Directo a la v2 oficial sin proxy)
   const consultarAPI_SUNAT = async (numeroRuc) => {
     try {
       // 1. Tu llave de seguridad real de apis.net.pe
-      const TU_TOKEN = 'sk_15825.wV0U6LGB3QlkD2Pe4jIVPpMqPhq6CUO9'; 
+      const TU_TOKEN = 'sk_15825.U4NzHHB93F8EuzO9HISC5KLm4rNPWhxL'; 
       
-      // 2. La URL oficial de la API
-      const urlAPI = `https://api.apis.net.pe/v1/ruc?numero=${numeroRuc}`;
-      
-      // 3. Usamos un Proxy gratuito (corsproxy.io) para evadir el bloqueo de seguridad del navegador
-      const urlConProxy = `https://corsproxy.io/?${encodeURIComponent(urlAPI)}`;
+      // 2. Apuntamos a la versión 2 (v2) que soporta peticiones directas desde React
+      const urlAPI = `https://api.apis.net.pe/v2/sunat/ruc?numero=${numeroRuc}`;
 
-      const response = await fetch(urlConProxy, {
+      // 3. Petición HTTP directa enviando tu credencial
+      const response = await fetch(urlAPI, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Authorization': `Bearer ${TU_TOKEN}` // Enviamos la credencial al servidor
+          'Authorization': `Bearer ${TU_TOKEN}`
         }
       });
 
       if (!response.ok) {
-        throw new Error('El RUC no existe o el servidor de consulta rechazó la llave de seguridad.');
+        throw new Error('El RUC no existe en SUNAT o el Token ingresado es incorrecto.');
       }
 
       const data = await response.json();
 
-      // Validación de negocio: Bloquear si no está activo
+      // Validación de regla de negocio (HU01)
       if (data.estado !== 'ACTIVO') {
         throw new Error(`El RUC se encuentra en estado: ${data.estado}. No apto para trámite.`);
       }
 
+      // Mapeamos los datos de la v2 a nuestro sistema
       return {
         ruc: data.numeroDocumento,
-        razonSocial: data.nombre,
-        domicilioFiscal: data.direccion || 'Dirección no especificada en el registro',
+        razonSocial: data.razonSocial, // En la v2 este campo se llama razonSocial
+        domicilioFiscal: data.direccion || 'Dirección no especificada en el padrón',
         estado: data.estado,
         condicion: data.condicion
       };
     } catch (error) {
       throw new Error(error.message === 'Failed to fetch' 
-        ? 'Error de conexión: El túnel proxy o el servidor de SUNAT están bloqueando la petición.' 
+        ? 'Error de conexión: Revisa tu conexión a internet o asegúrate de haber pegado bien tu Token.' 
         : error.message);
     }
   };
