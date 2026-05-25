@@ -141,11 +141,24 @@ export default function Solicitud() {
           <div className="flex justify-center mb-4">
             <CheckCircle className="text-green-600 w-16 h-16" />
           </div>
+          
           <h2 className="text-2xl font-bold text-gray-800">¡Trámite Registrado!</h2>
           
-          <div className="bg-blue-50 p-4 rounded-lg my-6 border border-blue-200">
+          <div className="bg-blue-50 p-4 rounded-lg my-6 border border-blue-200 relative">
             <span className="text-xs text-blue-700 font-bold uppercase tracking-wider">Código de Expediente</span>
-            <p className="text-3xl font-mono font-bold text-blue-900 mt-1">{resultadoTramite.codigo}</p>
+            <div className="flex items-center justify-center gap-3 mt-1">
+              <p className="text-3xl font-mono font-bold text-blue-900">{resultadoTramite.codigo}</p>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(resultadoTramite.codigo);
+                  alert("¡Código copiado al portapapeles!");
+                }}
+                className="bg-blue-200 hover:bg-blue-300 text-blue-800 p-2 rounded-full transition"
+                title="Copiar Código"
+              >
+                <Copy className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {resultadoTramite.esExpress ? (
