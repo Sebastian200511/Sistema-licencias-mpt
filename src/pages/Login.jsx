@@ -11,26 +11,37 @@ export default function Login() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // CONSUMO DE API REAL (Petición HTTP a internet)
+  // CONSUMO DE API REAL (Con túnel CORS y Token Oficial)
   const consultarAPI_SUNAT = async (numeroRuc) => {
     try {
-      // Hacemos una petición real GET a un endpoint público peruano que consulta a SUNAT
-      const response = await fetch(`https://api.apis.net.pe/v1/ruc?numero=${numeroRuc}`);
+      // 1. Tu llave de seguridad real de apis.net.pe
+      const TU_TOKEN = 'sk_15825.wV0U6LGB3QlkD2Pe4jIVPpMqPhq6CUO9'; 
+      
+      // 2. La URL oficial de la API
+      const urlAPI = `https://api.apis.net.pe/v1/ruc?numero=${numeroRuc}`;
+      
+      // 3. Usamos un Proxy gratuito (corsproxy.io) para evadir el bloqueo de seguridad del navegador
+      const urlConProxy = `https://corsproxy.io/?${encodeURIComponent(urlAPI)}`;
 
-      // Si el servidor responde con error (ej. error 404 porque el RUC no existe)
+      const response = await fetch(urlConProxy, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${TU_TOKEN}` // Enviamos la credencial al servidor
+        }
+      });
+
       if (!response.ok) {
-        throw new Error('El RUC ingresado no existe o no se encuentra disponible en SUNAT.');
+        throw new Error('El RUC no existe o el servidor de consulta rechazó la llave de seguridad.');
       }
 
-      // Parseamos la respuesta real a JSON
       const data = await response.json();
 
-      // Validamos si la empresa está de baja
+      // Validación de negocio: Bloquear si no está activo
       if (data.estado !== 'ACTIVO') {
         throw new Error(`El RUC se encuentra en estado: ${data.estado}. No apto para trámite.`);
       }
 
-      // Mapeamos los datos reales extraídos de internet a nuestra aplicación
       return {
         ruc: data.numeroDocumento,
         razonSocial: data.nombre,
@@ -39,9 +50,8 @@ export default function Login() {
         condicion: data.condicion
       };
     } catch (error) {
-      // Capturamos caídas de red o errores lanzados arriba
       throw new Error(error.message === 'Failed to fetch' 
-        ? 'Error de conexión: No se pudo conectar con el servidor externo.' 
+        ? 'Error de conexión: El túnel proxy o el servidor de SUNAT están bloqueando la petición.' 
         : error.message);
     }
   };
