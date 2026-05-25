@@ -1,3 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* En Tailwind v4 ya no usamos @tailwind base/components/utilities */
+/* Usamos @import "tailwindcss" y para extender usamos variables CSS estándar */
+
+:root {
+  --color-mpt-blue: #1e3a8a;
+}
+
+/* Si quieres usar @apply, asegúrate de que no haya espacios extra o errores de sintaxis */
+body {
+  background-color: #f9fafb; /* Esto es equivalente a bg-gray-50 */
+  color: #111827; /* Esto es equivalente a text-gray-900 */
+}

@@ -1,16 +1,13 @@
-/** @type {import('tailwindcss').Config} */
+
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}", // ¡Esta línea es vital!
   ],
   theme: {
     extend: {
       colors: {
-        mpt: {
-          blue: '#1e3a8a', // Azul institucional
-          gold: '#eab308', // Dorado/Amarillo de acento
-        }
+        'mpt-blue': '#1e3a8a', // Tu color corporativo
       }
     },
   },

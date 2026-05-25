@@ -12,42 +12,79 @@ export default function Login() {
   const [ingresando, setIngresando] = useState(false);
 
   // CONSUMO DE API REAL (apiperu.dev)
-  const consultarAPI_SUNAT = async (numeroRuc) => {
-    try {
-      const TU_NUEVO_TOKEN = 'be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970'; // <-- ¡PON TU TOKEN AQUÍ!
-      const urlAPI = `https://apiperu.dev/api/ruc/${numeroRuc}`;
+  const consultarRUC = async () => {
+  if (ruc.length !== 11) {
+    setError('El RUC debe tener 11 dígitos');
+    return;
+  }
 
-      const response = await fetch(urlAPI, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${TU_NUEVO_TOKEN}`
-        }
-      });
+  setLoading(true);
+  setError('');
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error('El RUC no existe en SUNAT o no es válido.');
+  try {
+    // 1. Consultar a SUNAT (apiperu.dev)
+    const token = "be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970"; 
+    const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
+    });
 
-      if (data.data.estado !== 'ACTIVO') {
-        throw new Error(`El RUC se encuentra en estado: ${data.data.estado}. No apto para trámite.`);
-      }
+    const resData = await response.json();
 
-      return {
-        ruc: data.data.ruc,
-        razonSocial: data.data.nombre_o_razon_social,
-        domicilioFiscal: data.data.direccion_completa || 'Dirección no especificada',
-        estado: data.data.estado,
-        condicion: data.data.condicion
-      };
-    } catch (error) {
-      throw new Error(error.message === 'Failed to fetch' 
-        ? 'Error de conexión con la API de consulta.' 
-        : error.message);
+    if (resData.success) {
+      const empresaData = resData.data;
+
+      // 2. PASO A: Asegurar que la empresa esté en la tabla 'empresas'
+      // Usamos .upsert para que si ya existe, solo la actualice o la ignore
+      const { data: empresaDb, error: errEmpresa } = await supabase
+        .from('empresas')
+        .upsert({ 
+          ruc: empresaData.ruc, 
+          razon_social: empresaData.nombre_o_razon_social,
+          domicilio_fiscal: empresaData.direccion 
+        }, { onConflict: 'ruc' })
+        .select()
+        .single();
+
+      if (errEmpresa) throw new Error("Error al registrar empresa: " + errEmpresa.message);
+
+      // 3. PASO B: Crear el expediente vinculado a esa empresa
+      const codigoExp = `EXP-${new Date().getFullYear()}-${ruc.slice(-4)}`;
+
+      const { error: errExpediente } = await supabase
+        .from('expedientes')
+        .insert([
+          { 
+            codigo: codigoExp,
+            empresa_id: empresaDb.id, // Usamos el ID que acabamos de obtener/validar
+            estado: 'Pendiente',
+            pago_realizado: false
+          }
+        ]);
+
+      if (errExpediente) throw new Error("Error al crear expediente: " + errExpediente.message);
+
+      // 4. Persistencia local para el flujo de la solicitud
+      localStorage.setItem('expediente_actual', JSON.stringify({
+        id: codigoExp,
+        razon_social: empresaData.nombre_o_razon_social
+      }));
+
+      window.location.href = '/solicitud';
+
+    } else {
+      setError('RUC no encontrado en el padrón de SUNAT');
     }
-  };
+  } catch (err) {
+    console.error("Error en el servidor:", err);
+    setError(err.message || 'Error crítico en el proceso de registro');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleConsultarRUC = async (e) => {
     e.preventDefault();
