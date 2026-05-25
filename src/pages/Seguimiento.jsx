@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download } from 'lucide-react';
+import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar } from 'lucide-react';
 import jsPDF from 'jspdf'; 
 
 export default function Seguimiento() {
