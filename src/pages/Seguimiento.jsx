@@ -21,7 +21,6 @@ export default function Seguimiento() {
     setLoading(true);
 
     try {
-      // CORRECCIÓN: Ahora también traemos la tabla de inspecciones asociada
       const { data: expData, error: expError } = await supabase
         .from('expedientes')
         .select('*, empresas ( ruc, razon_social, domicilio_fiscal ), inspecciones (*)')
@@ -31,10 +30,23 @@ export default function Seguimiento() {
       if (expError || !expData) throw new Error('Expediente no encontrado.');
       if (expData.empresas.ruc !== formData.ruc.trim()) throw new Error('El RUC no coincide.');
 
-      // Ordenamos para obtener siempre la inspección más reciente
+      // CORRECCIÓN: Buscamos específicamente la inspección que tiene la observación
       if (expData.inspecciones && expData.inspecciones.length > 0) {
-        const inspeccionesOrdenadas = expData.inspecciones.sort((a, b) => b.id - a.id);
-        setUltimaInspeccion(inspeccionesOrdenadas[0]);
+        
+        // 1. Intentamos buscar la inspección que causó la observación
+        const inspeccionConObservacion = expData.inspecciones.find(
+          insp => insp.estado === 'Observado' && insp.observaciones
+        );
+
+        if (inspeccionConObservacion) {
+          setUltimaInspeccion(inspeccionConObservacion);
+        } else {
+          // 2. Si no la encuentra (por si acaso), ordenamos por fecha de creación de forma segura
+          const ordenadasPorFecha = expData.inspecciones.sort(
+            (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+          );
+          setUltimaInspeccion(ordenadasPorFecha[0]);
+        }
       }
 
       setTramite(expData);
