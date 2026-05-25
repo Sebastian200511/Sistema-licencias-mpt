@@ -168,11 +168,34 @@ export default function Login() {
 
         {empresaValidada && (
           <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in">
-            <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex items-start gap-3 shadow-sm">
-              <CheckCircle2 className="text-green-600 w-6 h-6 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-green-800">RUC Validado Exitosamente</p>
-                <p className="text-xs text-green-700 mt-0.5">Estado: <span className="font-bold">{empresaValidada.estado}</span></p>
+            <div className="bg-green-50 border border-green-300 p-5 rounded-xl mb-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 border-b border-green-200 pb-2">
+                <CheckCircle2 className="text-green-700 w-5 h-5" />
+                <p className="text-sm font-bold text-green-800">RUC Validado Exitosamente en SUNAT</p>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-green-800 mb-1">Razón Social</label>
+                  <input 
+                    type="text" 
+                    value={empresaValidada.razonSocial} 
+                    disabled 
+                    className="w-full p-2 bg-white border border-green-200 rounded text-sm text-slate-700 font-semibold cursor-not-allowed" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-green-800 mb-1">Domicilio Fiscal</label>
+                  <input 
+                    type="text" 
+                    value={empresaValidada.domicilioFiscal} 
+                    disabled 
+                    className="w-full p-2 bg-white border border-green-200 rounded text-sm text-slate-700 font-semibold cursor-not-allowed" 
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-green-700 mt-1">Estado: <span className="font-bold">{empresaValidada.estado}</span> | Condición: <span className="font-bold">{empresaValidada.condicion}</span></p>
+                </div>
               </div>
             </div>
 
