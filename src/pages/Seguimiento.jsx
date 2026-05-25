@@ -159,7 +159,16 @@ export default function Seguimiento() {
               <h3 className={`text-2xl font-bold ${getStatusUI(tramite.estado).color} mb-2`}>
                 {getStatusUI(tramite.estado).texto}
               </h3>
-              
+              {tramite.estado === 'Pendiente' && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left w-full">
+                      <p className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                <Clock className="w-4 h-4" /> Próxima Inspección Municipal
+                </p>
+                      <p className="text-sm text-blue-700 mt-1">
+                       Su local ha sido programado para una inspección técnica. Por favor, mantenga sus planos y documentación a la mano.
+                  </p>
+                </div>
+                )}
               {/* Botón Mágico de Generación de PDF (Solo visible si está Aprobado) */}
               {tramite.estado === 'Aprobado' && (
                 <button 

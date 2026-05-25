@@ -165,6 +165,15 @@ export default function Login() {
             )}
           </div>
         </form>
+        <div className="mt-8 pt-6 border-t border-slate-200 text-center">
+  <p className="text-sm text-slate-500 mb-2">¿Ya realizó su solicitud?</p>
+  <button 
+    onClick={() => navigate('/seguimiento')} 
+    className="text-blue-900 font-bold hover:underline flex items-center justify-center gap-2 mx-auto"
+  >
+    <Search className="w-4 h-4" /> Consultar el estado de mi trámite
+  </button>
+</div>
 
         {empresaValidada && (
           <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in">
