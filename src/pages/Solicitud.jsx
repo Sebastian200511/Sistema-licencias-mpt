@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, RefreshCcw, Calendar } from 'lucide-react';
+import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, RefreshCcw, Calendar, Copy } from 'lucide-react';
 
 export default function Solicitud() {
   const location = useLocation();

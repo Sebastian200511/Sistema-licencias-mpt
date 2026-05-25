@@ -72,11 +72,22 @@ export default function Inspector() {
     setError('');
     setMensajeExito('');
 
+    // HU06: Exigir al inspector que anote la observación
+    let textoObservacion = null;
+    if (nuevoEstado === 'Observado') {
+      textoObservacion = window.prompt("HU06: Por favor, detalle las observaciones encontradas en el local para registrarlas en el expediente:");
+      
+      // Si el inspector cancela el cuadro o lo deja vacío, detenemos el proceso
+      if (!textoObservacion || textoObservacion.trim() === "") {
+        return; 
+      }
+    }
+
     try {
       let fechaSegundaVisita = null;
       if (nuevoEstado === 'Observado') {
         const hoy = new Date();
-        hoy.setDate(hoy.getDate() + 42); 
+        hoy.setDate(hoy.getDate() + 42); // 30 días hábiles
         fechaSegundaVisita = hoy.toISOString().split('T')[0];
       }
 
@@ -94,7 +105,7 @@ export default function Inspector() {
           fecha_programada: new Date().toISOString().split('T')[0],
           estado: nuevoEstado === 'Aprobado' ? 'Conforme' : nuevoEstado,
           fecha_segunda_visita: fechaSegundaVisita,
-          observaciones: nuevoEstado === 'Observado' ? 'Estructuras físicas no coinciden con planos. Se otorga plazo legal.' : null
+          observaciones: textoObservacion // Guardamos lo que el inspector tipeó
         }]);
 
       if (inspError) throw inspError;
