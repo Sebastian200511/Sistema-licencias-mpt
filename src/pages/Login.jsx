@@ -11,81 +11,7 @@ export default function Login() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // CONSUMO DE API REAL (apiperu.dev)
-  const consultarRUC = async () => {
-  if (ruc.length !== 11) {
-    setError('El RUC debe tener 11 dígitos');
-    return;
-  }
-
-  setLoading(true);
-  setError('');
-
-  try {
-    // 1. Consultar a SUNAT (apiperu.dev)
-    const token = "be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970"; 
-    const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const resData = await response.json();
-
-    if (resData.success) {
-      const empresaData = resData.data;
-
-      // 2. PASO A: Asegurar que la empresa esté en la tabla 'empresas'
-      // Usamos .upsert para que si ya existe, solo la actualice o la ignore
-      const { data: empresaDb, error: errEmpresa } = await supabase
-        .from('empresas')
-        .upsert({ 
-          ruc: empresaData.ruc, 
-          razon_social: empresaData.nombre_o_razon_social,
-          domicilio_fiscal: empresaData.direccion 
-        }, { onConflict: 'ruc' })
-        .select()
-        .single();
-
-      if (errEmpresa) throw new Error("Error al registrar empresa: " + errEmpresa.message);
-
-      // 3. PASO B: Crear el expediente vinculado a esa empresa
-      const codigoExp = `EXP-${new Date().getFullYear()}-${ruc.slice(-4)}`;
-
-      const { error: errExpediente } = await supabase
-        .from('expedientes')
-        .insert([
-          { 
-            codigo: codigoExp,
-            empresa_id: empresaDb.id, // Usamos el ID que acabamos de obtener/validar
-            estado: 'Pendiente',
-            pago_realizado: false
-          }
-        ]);
-
-      if (errExpediente) throw new Error("Error al crear expediente: " + errExpediente.message);
-
-      // 4. Persistencia local para el flujo de la solicitud
-      localStorage.setItem('expediente_actual', JSON.stringify({
-        id: codigoExp,
-        razon_social: empresaData.nombre_o_razon_social
-      }));
-
-      window.location.href = '/solicitud';
-
-    } else {
-      setError('RUC no encontrado en el padrón de SUNAT');
-    }
-  } catch (err) {
-    console.error("Error en el servidor:", err);
-    setError(err.message || 'Error crítico en el proceso de registro');
-  } finally {
-    setLoading(false);
-  }
-};
-
+  // 1. Consulta a la API Real de SUNAT (Corregido y unificado)
   const handleConsultarRUC = async (e) => {
     e.preventDefault();
     setError('');
@@ -99,15 +25,37 @@ export default function Login() {
     setBuscandoSunat(true);
 
     try {
-      const datosSunat = await consultarAPI_SUNAT(ruc);
-      setEmpresaValidada(datosSunat);
+      const token = "be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970"; 
+      const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const resData = await response.json();
+
+      if (resData.success) {
+        setEmpresaValidada({
+          ruc: resData.data.ruc,
+          razonSocial: resData.data.nombre_o_razon_social,
+          domicilioFiscal: resData.data.direccion,
+          estado: resData.data.estado,
+          condicion: resData.data.condicion
+        });
+      } else {
+        setError('RUC no encontrado en el padrón de SUNAT');
+      }
     } catch (err) {
-      setError(err.message || 'Error al conectar con los servidores de SUNAT.');
+      console.error(err);
+      setError('Error al conectar con los servidores de SUNAT.');
     } finally {
       setBuscandoSunat(false);
     }
   };
 
+  // 2. Creación de Empresa y Expediente en Supabase
   const handleSubmitFinal = async (e) => {
     e.preventDefault();
     if (!empresaValidada) return;
@@ -116,32 +64,44 @@ export default function Login() {
     setError('');
 
     try {
-      let { data: empresaBD, error: fetchError } = await supabase
+      const { data: empresaDb, error: errEmpresa } = await supabase
         .from('empresas')
-        .select('*')
-        .eq('ruc', empresaValidada.ruc)
+        .upsert({ 
+          ruc: empresaValidada.ruc, 
+          razon_social: empresaValidada.razonSocial,
+          domicilio_fiscal: empresaValidada.domicilioFiscal 
+        }, { onConflict: 'ruc' })
+        .select()
         .single();
 
-      if (!empresaBD) {
-        const { data: newEmpresa, error: insertError } = await supabase
-          .from('empresas')
-          .insert([{ 
-            ruc: empresaValidada.ruc, 
-            razon_social: empresaValidada.razonSocial, 
-            domicilio_fiscal: empresaValidada.domicilioFiscal 
-          }])
-          .select()
-          .single();
-          
-        if (insertError) throw insertError;
-        empresaBD = newEmpresa;
-      }
+      if (errEmpresa) throw new Error("Error al registrar empresa: " + errEmpresa.message);
 
-      localStorage.setItem('empresa_id', empresaBD.id);
+      const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
+      const codigoExp = `MPT-2026-${numeroAleatorio}`;
+
+      const { error: errExpediente } = await supabase
+        .from('expedientes')
+        .insert([
+          { 
+            codigo: codigoExp,
+            empresa_id: empresaDb.id,
+            estado: 'Borrador',
+            pago_realizado: false
+          }
+        ]);
+
+      if (errExpediente) throw new Error("Error al crear expediente: " + errExpediente.message);
+
+      localStorage.setItem('empresa_id', empresaDb.id);
+      localStorage.setItem('expediente_actual', JSON.stringify({
+        id: codigoExp,
+        razon_social: empresaValidada.razonSocial
+      }));
+
       navigate('/solicitud');
 
     } catch (err) {
-      setError('Error interno al registrar la empresa en el sistema municipal.');
+      setError(err.message || 'Error interno al registrar la empresa en el sistema.');
       console.error(err);
     } finally {
       setIngresando(false);
@@ -152,7 +112,6 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-4 font-sans">
       <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-2xl w-full max-w-lg border-t-8 border-mpt-blue transition-all duration-300">
         
-        {/* Cabecera Institucional */}
         <div className="flex flex-col items-center mb-8 text-center">
           <div className="bg-mpt-blue p-4 rounded-full mb-4 shadow-lg ring-4 ring-blue-50">
             <Building2 className="text-white w-10 h-10" />
@@ -167,7 +126,6 @@ export default function Login() {
           </div>
         )}
 
-        {/* Formulario 1: Consulta a SUNAT */}
         <form onSubmit={handleConsultarRUC} className="mb-6">
           <label className="block text-sm font-bold text-slate-700 mb-2">Identificación del Negocio</label>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -194,7 +152,6 @@ export default function Login() {
           </div>
         </form>
 
-        {/* Datos autocompletados (Solo de lectura) */}
         {empresaValidada && (
           <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in">
             <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex items-start gap-3 shadow-sm">
@@ -245,7 +202,6 @@ export default function Login() {
           </form>
         )}
 
-        {/* Enlace al Seguimiento */}
         {!empresaValidada && (
           <div className="mt-8 pt-6 border-t border-slate-200 text-center">
             <p className="text-sm text-slate-500 mb-3 font-medium">¿Ya cuenta con un trámite en evaluación?</p>
