@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Building2, Search, CheckCircle2, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
+// ⚠️ SOLUCIÓN: Cambiamos CheckCircle2 por CheckCircle (Estable)
+import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,7 +15,6 @@ export default function Login() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // Integración con API externa (SUNAT) y validación interna BLINDADA
   const handleConsultarRUC = async (e) => {
     e.preventDefault();
     setError('');
@@ -22,7 +22,7 @@ export default function Login() {
     setLicenciaPrevia(null);
     setCambiosEstructurales(null);
 
-    if (ruc.length !== 11) {
+    if (!ruc || ruc.length !== 11) {
       setError('El RUC debe tener exactamente 11 dígitos numéricos.');
       return;
     }
@@ -30,7 +30,6 @@ export default function Login() {
     setBuscandoSunat(true);
 
     try {
-      // A. Consultar padrón SUNAT
       const token = "73aae707fbb5c6faea3a40fd8fbb260bb68b273b73e4c2d5b0be476832ee9d1b"; 
       const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
         method: 'GET',
@@ -40,12 +39,20 @@ export default function Login() {
         }
       });
 
-      const resData = await response.json();
+      // ⚠️ DEFENSA 2: Si la API devuelve un error HTML en vez de JSON, no explotará
+      if (!response.ok) {
+        throw new Error(`La API de consulta falló con estado: ${response.status}`);
+      }
 
-      // VALIDACIÓN DEFENSIVA: Verificamos que 'success' sea true Y que 'data' exista
+      let resData;
+      try {
+        resData = await response.json();
+      } catch (parseError) {
+        throw new Error('El servicio de SUNAT devolvió un formato inválido. Intente nuevamente.');
+      }
+
       if (resData?.success && resData?.data) {
         setEmpresaValidada({
-          // Usamos || para dar un valor por defecto si la API devuelve nulo
           ruc: resData.data.ruc || ruc,
           razonSocial: resData.data.nombre_o_razon_social || 'Razón Social No Disponible',
           domicilioFiscal: resData.data.direccion || 'Dirección No Disponible',
@@ -53,42 +60,36 @@ export default function Login() {
           condicion: resData.data.condicion || 'NO DEFINIDO'
         });
 
-        // B. Verificación de expedientes previos (Control de Renovaciones)
-        const { data: empresaDb, error: dbError } = await supabase
-          .from('empresas')
-          .select(`id, expedientes(codigo, estado)`)
-          .eq('ruc', resData.data.ruc || ruc)
-          .maybeSingle();
+        // Búsqueda en Supabase con defensa
+        if (supabase) {
+          const { data: empresaDb } = await supabase
+            .from('empresas')
+            .select(`id, expedientes(codigo, estado)`)
+            .eq('ruc', resData.data.ruc || ruc)
+            .maybeSingle();
 
-        // Optional Chaining (?.) en empresaDb y expedientes para evitar errores de lectura
-        if (empresaDb?.expedientes && Array.isArray(empresaDb.expedientes)) {
-          const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
-          if (aprobada) {
-            setLicenciaPrevia(aprobada); 
+          if (empresaDb?.expedientes && Array.isArray(empresaDb.expedientes)) {
+            const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
+            if (aprobada) setLicenciaPrevia(aprobada); 
           }
         }
-
       } else {
-        // Maneja el caso donde la API responde pero el RUC no es válido
-        setError(resData?.message || 'RUC no encontrado o inactivo en SUNAT.');
+        setError(resData?.message || 'RUC no encontrado o inactivo en el padrón.');
       }
     } catch (err) {
       console.error("Error capturado:", err);
-      // Evita la pantalla blanca mostrando el error en la interfaz
-      setError('Error al conectar con los servidores. Verifique su conexión o intente más tarde.');
+      setError(err.message || 'Error de conexión. Verifique su internet o intente más tarde.');
     } finally {
       setBuscandoSunat(false);
     }
   };
 
-  // Registro de empresa y enrutamiento según tipo de trámite
   const handleSubmitFinal = async (e) => {
     e.preventDefault();
     if (!empresaValidada) return;
     
-    // Validación de obligatoriedad para clientes con licencia previa
     if (licenciaPrevia && cambiosEstructurales === null) {
-      setError('Debe indicar si su local ha sufrido modificaciones.');
+      setError('Debe indicar si su local ha sufrido modificaciones físicas.');
       return;
     }
 
@@ -106,7 +107,7 @@ export default function Login() {
         .select()
         .single();
 
-      if (errEmpresa) throw new Error("Error al registrar empresa: " + errEmpresa.message);
+      if (errEmpresa) throw new Error("Error en base de datos: " + errEmpresa.message);
 
       const tipoTramite = (licenciaPrevia && cambiosEstructurales === false) ? 'renovacion_automatica' : 'nuevo';
       
@@ -119,7 +120,7 @@ export default function Login() {
       });
 
     } catch (err) {
-      setError(err.message || 'Error interno al registrar en el sistema.');
+      setError(err.message || 'Error interno al registrar los datos en el sistema.');
       console.error(err);
     } finally {
       setIngresando(false);
@@ -186,12 +187,12 @@ export default function Login() {
           </Link>
         </div>
 
-        {/* Agregamos ?. en toda la interfaz visual para prevenir bloqueos de renderizado */}
         {empresaValidada && (
           <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in mt-6">
             <div className="bg-green-50 border border-green-300 p-5 rounded-xl mb-4 shadow-sm">
               <div className="flex items-center gap-2 mb-4 border-b border-green-200 pb-2">
-                <CheckCircle2 className="text-green-700 w-5 h-5" />
+                {/* ICONO SEGURO Y COMPATIBLE */}
+                <CheckCircle className="text-green-700 w-5 h-5" />
                 <p className="text-sm font-bold text-green-800">RUC Validado Exitosamente en SUNAT</p>
               </div>
               
@@ -226,7 +227,7 @@ export default function Login() {
                   <RefreshCcw className="w-4 h-4" /> Renovación de Licencia Detectada
                 </h3>
                 <p className="text-xs text-blue-800 mb-3">
-                  Su local ya cuenta con el expediente <strong>{licenciaPrevia?.codigo}</strong>. Para continuar, declare lo siguiente:
+                  Su local ya cuenta con el expediente <strong>{licenciaPrevia?.codigo || 'Registrado'}</strong>. Para continuar, declare lo siguiente:
                 </p>
                 
                 <div className="space-y-2">
