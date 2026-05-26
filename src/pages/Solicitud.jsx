@@ -227,7 +227,7 @@ export default function Solicitud() {
 
           {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-semibold">{error}</div>}
 
-          <form onSubmit={handleSubmitTramite} className="space-y-6">
+          <div className="space-y-6">
             
             {!esRenovacionExpress && (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -287,14 +287,15 @@ export default function Solicitud() {
 
             {pagoAprobado && (
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmitTramite}
                 disabled={loading}
                 className="w-full bg-blue-900 text-white font-bold py-4 px-4 rounded-lg hover:bg-blue-950 transition flex items-center justify-center gap-2 text-lg shadow-xl"
               >
                 {loading ? 'Procesando expediente...' : 'Generar Expediente y Finalizar'} <ArrowRight className="w-6 h-6" />
               </button>
             )}
-          </form>
+          </div>
         </div>
       </main>
     </div>
