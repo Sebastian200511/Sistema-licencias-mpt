@@ -135,7 +135,20 @@ export default function Seguimiento() {
           <form onSubmit={handleBuscar} className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">RUC de la Empresa</label>
-              <input type="number" required value={formData.ruc} onChange={(e) => setFormData({...formData, ruc: e.target.value})} className="w-full p-2 border rounded" placeholder="11 dígitos" />
+              <input 
+                type="text" 
+                maxLength={11}
+                required 
+                value={formData.ruc} 
+                onChange={(e) => {
+                  const valorSoloNumeros = e.target.value.replace(/\D/g, '');
+                  if (valorSoloNumeros.length <= 11) {
+                    setFormData({...formData, ruc: valorSoloNumeros});
+                  }
+                }} 
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-900 outline-none" 
+                placeholder="11 dígitos" 
+              />
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Código de Expediente</label>
