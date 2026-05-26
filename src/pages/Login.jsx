@@ -31,7 +31,7 @@ export default function Login() {
 
     try {
       // A. Consultar padrón SUNAT
-      const token = "be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970"; 
+      const token = "73aae707fbb5c6faea3a40fd8fbb260bb68b273b73e4c2d5b0be476832ee9d1b"; 
       const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
         method: 'GET',
         headers: {
