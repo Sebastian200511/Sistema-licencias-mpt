@@ -71,10 +71,10 @@ export default function Seguimiento() {
     }
 
     try {
-      // Buscamos la empresa por RUC y traemos su último expediente
+      // Usamos el nombre correcto de la columna: fecha_creacion
       const { data, error: fetchError } = await supabase
         .from('empresas')
-        .select(`ruc, expedientes(codigo, created_at)`)
+        .select(`ruc, expedientes(codigo, fecha_creacion)`)
         .eq('ruc', formData.ruc.trim())
         .single();
 
@@ -82,8 +82,13 @@ export default function Seguimiento() {
         throw new Error('No se encontraron trámites registrados para este RUC.');
       }
 
-      // Ordenamos para darle el trámite más reciente
-      const tramitesOrdenados = data.expedientes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      // Ordenamos usando fecha_creacion
+      const tramitesOrdenados = data.expedientes.sort((a, b) => {
+        // Aseguramos que si alguna fecha es nula, no rompa la matemática
+        const fechaA = new Date(a.fecha_creacion || 0);
+        const fechaB = new Date(b.fecha_creacion || 0);
+        return fechaB - fechaA;
+      });
       
       setCodigoRecuperado(tramitesOrdenados[0].codigo);
       
