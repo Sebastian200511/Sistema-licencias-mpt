@@ -1,4 +1,3 @@
-import CertificadoLicencia from '../components/CertificadoLicencia';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
@@ -204,38 +203,12 @@ export default function Seguimiento() {
               )}
               
               {tramite.estado === 'Aprobado' && (
-                <div className="mt-8 w-full flex flex-col items-center">
-                  {/* Tu botón original de descargar PDF */}
-                  <button 
-                    onClick={generarLicenciaPDF}
-                    className="mb-8 flex items-center gap-2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-lg"
-                  >
-                    <Download className="w-5 h-5" /> Descargar Licencia Oficial (PDF)
-                  </button>
-
-                  {/* AQUÍ INSERTAMOS EL CERTIFICADO VISUAL CON LOS DATOS REALES DE TU BASE */}
-                  <div className="w-full overflow-x-auto border-t-2 border-dashed border-gray-200 pt-8 mt-2">
-                    <p className="text-gray-500 font-bold mb-4 text-sm text-center">VISTA PREVIA DEL CERTIFICADO OFICIAL:</p>
-                    <div className="transform scale-75 md:scale-100 origin-top flex justify-center">
-                      <CertificadoLicencia 
-                        datosLicencia={{
-                          razonSocial: empresa.razon_social,
-                          ruc: empresa.ruc,
-                          direccionLocal: empresa.domicilio_fiscal,
-                          codigoExpediente: tramite.codigo,
-                          nombreComercial: empresa.nombre_comercial || empresa.razon_social, 
-                          representanteLegal: empresa.representante_legal || '-',
-                          dniRepresentante: empresa.dni_representante || '-',
-                          giro: empresa.giro || 'Comercio General',
-                          area: empresa.area || '-',
-                          zonificacion: empresa.zonificacion || 'RDA',
-                          horarioAtencion: empresa.horario || '08:00 a 20:00',
-                          numeroLicencia: tramite.id ? `00${tramite.id}` : '002307'
-                        }} 
-                      />
-                    </div>
-                  </div>
-                </div>
+                <button 
+                  onClick={generarLicenciaPDF}
+                  className="mt-6 flex items-center gap-2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-lg"
+                >
+                  <Download className="w-5 h-5" /> Descargar Licencia Oficial (PDF)
+                </button>
               )}
             </div>
           </div>
