@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar } from 'lucide-react';
 import jsPDF from 'jspdf'; 
@@ -117,9 +117,9 @@ export default function Seguimiento() {
     <div className="min-h-screen bg-gray-50 pb-12">
       <header className="bg-blue-900 text-white shadow-md py-4 px-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="hover:bg-blue-800 p-2 rounded transition">
+          <Link to="/" className="hover:bg-blue-800 p-2 rounded transition inline-flex">
             <ArrowLeft className="w-5 h-5" />
-          </button>
+          </Link>
           <div>
             <h1 className="text-lg font-bold tracking-wide">MUNICIPALIDAD PROVINCIAL DE TRUJILLO</h1>
             <p className="text-xs text-blue-200">Plataforma de Consulta de Trámites</p>

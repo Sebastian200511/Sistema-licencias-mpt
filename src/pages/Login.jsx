@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Building2, Search, CheckCircle2, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
 
@@ -175,12 +175,12 @@ export default function Login() {
 
         <div className="mt-8 pt-6 border-t border-slate-200 text-center">
           <p className="text-sm text-slate-500 mb-2">¿Ya realizó su solicitud?</p>
-          <button 
-            onClick={() => navigate('/seguimiento')} 
-            className="text-blue-900 font-bold hover:underline flex items-center justify-center gap-2 mx-auto"
+          <Link 
+            to="/seguimiento" 
+            className="text-blue-900 font-bold hover:underline flex items-center justify-center gap-2 mx-auto w-fit"
           >
             <Search className="w-4 h-4" /> Consultar el estado de mi trámite
-          </button>
+          </Link>
         </div>
 
         {empresaValidada && (
@@ -268,12 +268,12 @@ export default function Login() {
 
       {/* --- ACCESO INSTITUCIONAL PARA EL INSPECTOR --- */}
       <div className="mt-8 text-center animate-fade-in">
-        <button 
-          onClick={() => navigate('/inspector')} 
-          className="text-slate-400 hover:text-blue-900 text-sm font-semibold transition-colors border-b border-transparent hover:border-blue-900 pb-0.5"
+        <Link 
+          to="/inspector"
+          className="inline-block text-slate-400 hover:text-blue-900 text-sm font-semibold transition-colors border-b border-transparent hover:border-blue-900 pb-0.5"
         >
           Acceso Institucional
-        </button>
+        </Link>
       </div>
 
     </div>
