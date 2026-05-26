@@ -35,6 +35,21 @@ export default function Solicitud() {
     if (pagoExitoso) {
       setPagoAprobado(true);
     }
+    // --- MAGIA: RECUPERAR EL PDF DESPUÉS DE RECUPERAR LA PÁGINA ---
+    const savedPdfName = sessionStorage.getItem('mpt_saved_pdf_name');
+    const savedPdfData = sessionStorage.getItem('mpt_saved_pdf_data');
+    
+    // Si hay un archivo guardado en memoria y aún no lo hemos cargado en el estado
+    if (savedPdfName && savedPdfData && !fileObject) {
+      setPlanoSeleccionado(savedPdfName);
+      // Reensamblamos el PDF
+      fetch(savedPdfData)
+        .then(res => res.blob())
+        .then(blob => {
+          const recoveredFile = new File([blob], savedPdfName, { type: blob.type || 'application/pdf' });
+          setFileObject(recoveredFile);
+        });
+    }
 
     // 2. Control de la memoria de React (Para cuando el usuario cancela o regresa)
     if (!empresaId) {
@@ -57,6 +72,14 @@ export default function Solicitud() {
       const file = e.target.files[0];
       setPlanoSeleccionado(file.name);
       setFileObject(file);
+
+      // Truco de ingeniería: Transformar PDF a Base64 para que sobreviva al viaje a Mercado Pago
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        sessionStorage.setItem('mpt_saved_pdf_name', file.name);
+        sessionStorage.setItem('mpt_saved_pdf_data', reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -158,6 +181,8 @@ export default function Solicitud() {
       }
 
       setResultadoTramite({ codigo: codigoExpediente, esExpress: esRenovacionExpress, fechaVisita: fechaVisitaStr });
+      sessionStorage.removeItem('mpt_saved_pdf_name');
+      sessionStorage.removeItem('mpt_saved_pdf_data');
     } catch (err) {
       setError('Error al registrar el trámite en la base de datos.');
     } finally {
@@ -230,16 +255,18 @@ export default function Solicitud() {
           <div className="space-y-6">
             
             {!esRenovacionExpress && (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="mx-auto text-gray-400 w-12 h-12 mb-2" />
+              <div className="border-2 border-dashed border-blue-400 bg-blue-50 rounded-xl p-6 text-center transition-all shadow-sm">
+                <Upload className="mx-auto text-blue-500 w-10 h-10 mb-3" />
                 <label className="cursor-pointer block">
-                  <span className="bg-blue-100 text-blue-700 font-semibold px-4 py-2 rounded text-sm hover:bg-blue-200 transition">
-                    Adjuntar Plano Estructural
+                  <span className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg text-sm hover:bg-blue-700 transition shadow-md">
+                    Adjuntar Plano Estructural (PDF)
                   </span>
                   <input type="file" accept=".pdf,image/*" onChange={handleFileChange} className="hidden" />
                 </label>
                 {planoSeleccionado && (
-                  <div className="mt-3 text-sm text-green-700 font-medium bg-green-50 py-1 px-3 rounded inline-block">✓ {planoSeleccionado}</div>
+                  <div className="mt-4 text-sm text-green-800 font-bold bg-green-100 py-2 px-4 rounded-lg inline-block border border-green-300">
+                    ✓ {planoSeleccionado}
+                  </div>
                 )}
               </div>
             )}
@@ -276,16 +303,37 @@ export default function Solicitud() {
               )}
             </div>
 
-            {pagoAprobado && (
+            {/* --- BLOQUE DE VALIDACIÓN DINÁMICA DE ENTRADAS (HU02) --- */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+              
+              {/* Alerta 1: Falta el Pago */}
+              {!pagoAprobado && (
+                <p className="text-xs sm:text-sm font-medium text-amber-600 bg-amber-50 border border-amber-200 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
+                  ⚠️ Pendiente: Debe procesar el pago de la tasa administrativa.
+                </p>
+              )}
+
+              {/* Alerta 2: Falta el Plano (Solo si no es renovación express) */}
+              {!esRenovacionExpress && !planoSeleccionado && (
+                <p className="text-xs sm:text-sm font-medium text-amber-600 bg-amber-50 border border-amber-200 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
+                  ⚠️ Pendiente: Debe adjuntar el plano estructural del local comercial.
+                </p>
+              )}
+
+              {/* Botón de acción final controlado por los dos estados anteriores */}
               <button
                 type="button"
                 onClick={handleSubmitTramite}
-                disabled={loading}
-                className="w-full bg-blue-900 text-white font-bold py-4 px-4 rounded-lg hover:bg-blue-950 transition flex items-center justify-center gap-2 text-lg shadow-xl"
+                disabled={loading || !pagoAprobado || (!esRenovacionExpress && !planoSeleccionado)}
+                className={`w-full font-bold py-4 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-lg shadow-md ${
+                  pagoAprobado && (esRenovacionExpress || planoSeleccionado)
+                    ? 'bg-blue-900 text-white hover:bg-blue-950 active:scale-[0.99] cursor-pointer' // Encendido si cumple AMBOS
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-80 shadow-none' // Apagado si falta alguno
+                }`}
               >
                 {loading ? 'Procesando expediente...' : 'Generar Expediente y Finalizar'} <ArrowRight className="w-6 h-6" />
               </button>
-            )}
+            </div>
           </div>
         </div>
       </main>
