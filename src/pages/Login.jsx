@@ -38,8 +38,12 @@ export default function Login() {
         }
       });
 
+      // --- CAMBIO 1: MENSAJE AMIGABLE PARA RUCS INVENTADOS ---
       if (!response.ok) {
-        throw new Error(`La API de consulta falló con estado: ${response.status}`);
+        if (response.status === 400 || response.status === 404 || response.status === 422) {
+          throw new Error('El RUC ingresado no existe o no se encuentra registrado en SUNAT.');
+        }
+        throw new Error(`Error de conexión con el servidor (Estado: ${response.status})`);
       }
 
       let resData;
@@ -51,21 +55,30 @@ export default function Login() {
 
       if (resData?.success && resData?.data) {
         
-        // --- NUEVO CANDADO: VALIDACIÓN DE JURISDICCIÓN (TRUJILLO) ---
-        const direccionSunat = resData.data.direccion || '';
-        const esDeTrujillo = direccionSunat.toUpperCase().includes('TRUJILLO');
+        // --- CAMBIO 2: CANDADO JURISDICCIONAL (SOLO TRUJILLO) MEJORADO ---
+        // La API separa la calle, distrito y provincia. Unimos todo para que no se nos escape nada.
+        const calle = resData.data.direccion || '';
+        const distrito = resData.data.distrito || '';
+        const provincia = resData.data.provincia || '';
+        const departamento = resData.data.departamento || '';
+        
+        const ubicacionCompleta = `${calle} ${distrito} ${provincia} ${departamento}`.toUpperCase();
+        const esDeTrujillo = ubicacionCompleta.includes('TRUJILLO');
 
         if (!esDeTrujillo) {
-          setError('Operación rechazada: El domicilio fiscal de este RUC no pertenece a la jurisdicción de Trujillo.');
+          setError('Operación rechazada: El domicilio fiscal de este negocio no pertenece a la jurisdicción de Trujillo.');
           setBuscandoSunat(false);
-          return; 
+          return; // Cortamos el flujo aquí
         }
-        // ------------------------------------------------------------
+
+        // Armamos una dirección elegante para mostrarla al cliente en pantalla
+        const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
+        // --------------------------------------------------------
 
         setEmpresaValidada({
           ruc: resData.data.ruc || ruc,
           razonSocial: resData.data.nombre_o_razon_social || 'Razón Social No Disponible',
-          domicilioFiscal: direccionSunat, // Aquí reutilizamos la variable
+          domicilioFiscal: direccionMostrar || 'Dirección No Disponible',
           estado: resData.data.estado || 'NO DEFINIDO',
           condicion: resData.data.condicion || 'NO DEFINIDO'
         });
