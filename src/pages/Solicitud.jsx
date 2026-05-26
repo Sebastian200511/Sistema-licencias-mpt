@@ -26,20 +26,29 @@ export default function Solicitud() {
 
   const esRenovacionExpress = tipoTramite === 'renovacion_automatica';
 
-  // Validación de retorno de pasarela de pagos (auto_return)
+  // Validación de retorno de pasarela de pagos
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('status') === 'approved' || urlParams.get('collection_status') === 'approved') {
+    const pagoExitoso = urlParams.get('status') === 'approved' || urlParams.get('collection_status') === 'approved';
+
+    // 1. Si el pago fue un éxito, encendemos el check verde
+    if (pagoExitoso) {
       setPagoAprobado(true);
-      // Restauración de estado de sesión post-redirección
+    }
+
+    // 2. Control de la memoria de React (Para cuando el usuario cancela o regresa)
+    if (!empresaId) {
+      // Si React perdió la memoria por la recarga, intentamos rescatarla
       const savedState = JSON.parse(sessionStorage.getItem('mpt_tramite_state'));
-      if (savedState && !empresaId) {
+      if (savedState) {
         navigate(location.pathname, { state: savedState, replace: true });
+      } else {
+        // Solo si definitivamente no hay nada en la memoria, lo botamos al login
+        navigate('/');
       }
-    } else if (empresaId) {
+    } else {
+      // Si tenemos los datos, los guardamos en la caja fuerte por si viaja a Mercado Pago
       sessionStorage.setItem('mpt_tramite_state', JSON.stringify(location.state));
-    } else if (!empresaId && !urlParams.get('status')) {
-      navigate('/');
     }
   }, [navigate, empresaId, location]);
 
