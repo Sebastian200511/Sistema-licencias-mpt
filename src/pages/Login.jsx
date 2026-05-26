@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-// ⚠️ SOLUCIÓN: Cambiamos CheckCircle2 por CheckCircle (Estable)
 import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
 
 export default function Login() {
@@ -39,7 +38,6 @@ export default function Login() {
         }
       });
 
-      // ⚠️ DEFENSA 2: Si la API devuelve un error HTML en vez de JSON, no explotará
       if (!response.ok) {
         throw new Error(`La API de consulta falló con estado: ${response.status}`);
       }
@@ -48,7 +46,7 @@ export default function Login() {
       try {
         resData = await response.json();
       } catch (parseError) {
-        throw new Error('El servicio de SUNAT devolvió un formato inválido. Intente nuevamente.');
+        throw new Error('El servicio de SUNAT devolvió un formato inválido.');
       }
 
       if (resData?.success && resData?.data) {
@@ -60,7 +58,6 @@ export default function Login() {
           condicion: resData.data.condicion || 'NO DEFINIDO'
         });
 
-        // Búsqueda en Supabase con defensa
         if (supabase) {
           const { data: empresaDb } = await supabase
             .from('empresas')
@@ -78,7 +75,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error("Error capturado:", err);
-      setError(err.message || 'Error de conexión. Verifique su internet o intente más tarde.');
+      setError(err.message || 'Error de conexión. Verifique su internet.');
     } finally {
       setBuscandoSunat(false);
     }
@@ -141,7 +138,8 @@ export default function Login() {
 
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 text-sm font-medium animate-pulse">
-            {error}
+            {/* 🛡️ DEFENSA APLICADA: Envolvemos el texto de error en span */}
+            <span>{error}</span>
           </div>
         )}
 
@@ -169,9 +167,10 @@ export default function Login() {
               <button 
                 type="submit" 
                 disabled={buscandoSunat || ruc.length !== 11}
-                className="bg-slate-800 text-white px-6 py-3 rounded-xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 disabled:opacity-70 font-semibold shadow-md"
+                className="bg-slate-800 text-white px-6 py-3 rounded-xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 disabled:opacity-70 font-semibold shadow-md min-w-[140px]"
               >
-                {buscandoSunat ? 'Validando...' : <><Search className="w-5 h-5"/> SUNAT</>}
+                {/* 🛡️ DEFENSA APLICADA: Envolvemos los textos condicionales en span */}
+                {buscandoSunat ? <span>Validando...</span> : <div className="flex items-center gap-2"><Search className="w-5 h-5"/> <span>SUNAT</span></div>}
               </button>
             )}
           </div>
@@ -183,7 +182,7 @@ export default function Login() {
             to="/seguimiento" 
             className="text-blue-900 font-bold hover:underline flex items-center justify-center gap-2 mx-auto w-fit"
           >
-            <Search className="w-4 h-4" /> Consultar el estado de mi trámite
+            <Search className="w-4 h-4" /> <span>Consultar el estado de mi trámite</span>
           </Link>
         </div>
 
@@ -191,7 +190,6 @@ export default function Login() {
           <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in mt-6">
             <div className="bg-green-50 border border-green-300 p-5 rounded-xl mb-4 shadow-sm">
               <div className="flex items-center gap-2 mb-4 border-b border-green-200 pb-2">
-                {/* ICONO SEGURO Y COMPATIBLE */}
                 <CheckCircle className="text-green-700 w-5 h-5" />
                 <p className="text-sm font-bold text-green-800">RUC Validado Exitosamente en SUNAT</p>
               </div>
@@ -263,7 +261,8 @@ export default function Login() {
                 disabled={ingresando}
                 className="flex-1 bg-blue-900 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-950 transition-all shadow-lg hover:shadow-xl disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                {ingresando ? 'Iniciando...' : 'Continuar Trámite'} <ArrowRight className="w-5 h-5" />
+                {/* 🛡️ DEFENSA APLICADA: Textos envueltos en span */}
+                {ingresando ? <span>Iniciando...</span> : <div className="flex items-center gap-2"><span>Continuar Trámite</span> <ArrowRight className="w-5 h-5" /></div>}
               </button>
             </div>
           </form>
@@ -275,10 +274,9 @@ export default function Login() {
           to="/inspector"
           className="inline-block text-slate-400 hover:text-blue-900 text-sm font-semibold transition-colors border-b border-transparent hover:border-blue-900 pb-0.5"
         >
-          Acceso Institucional
+          <span>Acceso Institucional</span>
         </Link>
       </div>
-
     </div>
   );
 }
