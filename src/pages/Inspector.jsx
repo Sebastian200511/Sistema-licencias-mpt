@@ -74,9 +74,9 @@ export default function Inspector() {
 
     let textoObservacion = null;
     
-    // Validar captura de observaciones (HU06)
+    // Validar captura de observaciones 
     if (nuevoEstado === 'Observado') {
-      textoObservacion = window.prompt("HU06: Detalle las observaciones encontradas en el local para registrarlas en el expediente:");
+      textoObservacion = window.prompt("Detalle las observaciones encontradas en el local para registrarlas en el expediente:");
       
       // Abortar si no se proporciona justificación
       if (!textoObservacion || textoObservacion.trim() === "") {

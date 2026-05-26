@@ -130,7 +130,7 @@ export default function Login() {
           <div className="bg-blue-900 p-4 rounded-full mb-4 shadow-lg ring-4 ring-blue-50">
             <Building2 className="text-white w-10 h-10" />
           </div>
-          <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Mesa de Partes Virtual</h2>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight text-center">Licencias de Funcionamiento</h2>
           <p className="text-slate-500 font-medium mt-1">Municipalidad Provincial de Trujillo</p>
         </div>
 
