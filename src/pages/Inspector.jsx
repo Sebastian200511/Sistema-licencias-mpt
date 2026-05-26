@@ -7,7 +7,6 @@ export default function Inspector() {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [expedientes, setExpedientes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filtroBusqueda, setFiltroBusqueda] = useState('');
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
 
@@ -161,11 +160,7 @@ export default function Inspector() {
       </div>
     );
   }
-  // Lógica del buscador de trámites perdidos
-  const expedientesFiltrados = expedientes.filter(exp => 
-    (exp.empresas?.ruc && exp.empresas.ruc.includes(filtroBusqueda)) || 
-    (exp.codigo && exp.codigo.toLowerCase().includes(filtroBusqueda.toLowerCase()))
-  );
+
   return (
     <div className="min-h-screen bg-slate-100 pb-12">
       <header className="bg-slate-900 text-white py-4 px-6 flex justify-between items-center shadow-md">
@@ -181,24 +176,13 @@ export default function Inspector() {
       </header>
 
       <main className="max-w-6xl mx-auto mt-8 p-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <ListFilter className="text-blue-900" /> Trámites Asignados
+            <ListFilter className="text-blue-900" /> Trámites Asignados para Inspección Física
           </h2>
-          
-          {/* BUSCADOR DE CONTINGENCIA PARA CIUDADANOS QUE PIERDEN SU CÓDIGO */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <input 
-              type="text" 
-              placeholder="🔍 Buscar por RUC o Código..." 
-              value={filtroBusqueda}
-              onChange={(e) => setFiltroBusqueda(e.target.value)}
-              className="w-full md:w-64 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none"
-            />
-            <button onClick={cargarExpedientes} className="p-2 bg-white rounded-lg shadow hover:bg-gray-50 text-slate-600 transition" title="Actualizar lista">
-              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          <button onClick={cargarExpedientes} className="p-2 bg-white rounded-lg shadow hover:bg-gray-50 text-slate-600 transition">
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-semibold">{error}</div>}
@@ -210,7 +194,7 @@ export default function Inspector() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {expedientesFiltrados.map((exp) => {
+            {expedientes.map((exp) => {
               const inspeccionAsignada = exp.inspecciones && exp.inspecciones[0];
               
               // Validar formato de URL del plano
