@@ -145,9 +145,16 @@ export default function Login() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <input 
-                type="number" 
+                type="text" 
+                maxLength={11}
                 value={ruc} 
-                onChange={(e) => setRuc(e.target.value)} 
+                onChange={(e) => {
+                  // Filtro estricto: solo permite números del 0 al 9
+                  const valorSoloNumeros = e.target.value.replace(/\D/g, '');
+                  if (valorSoloNumeros.length <= 11) {
+                    setRuc(valorSoloNumeros);
+                  }
+                }} 
                 required 
                 disabled={empresaValidada !== null || buscandoSunat}
                 className="w-full pl-4 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-900 focus:border-blue-900 disabled:bg-slate-100 disabled:text-slate-500 transition-all outline-none" 
