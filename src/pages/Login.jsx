@@ -14,7 +14,7 @@ export default function Login() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // Integración con API externa (SUNAT) y validación interna
+  // Integración con API externa (SUNAT) y validación interna BLINDADA
   const handleConsultarRUC = async (e) => {
     e.preventDefault();
     setError('');
@@ -42,35 +42,40 @@ export default function Login() {
 
       const resData = await response.json();
 
-      if (resData.success) {
+      // VALIDACIÓN DEFENSIVA: Verificamos que 'success' sea true Y que 'data' exista
+      if (resData?.success && resData?.data) {
         setEmpresaValidada({
-          ruc: resData.data.ruc,
-          razonSocial: resData.data.nombre_o_razon_social,
-          domicilioFiscal: resData.data.direccion,
-          estado: resData.data.estado,
-          condicion: resData.data.condicion
+          // Usamos || para dar un valor por defecto si la API devuelve nulo
+          ruc: resData.data.ruc || ruc,
+          razonSocial: resData.data.nombre_o_razon_social || 'Razón Social No Disponible',
+          domicilioFiscal: resData.data.direccion || 'Dirección No Disponible',
+          estado: resData.data.estado || 'NO DEFINIDO',
+          condicion: resData.data.condicion || 'NO DEFINIDO'
         });
 
-        // B. Verificación de expedientes previos (Control de Renovaciones - HU08/HU09)
-        const { data: empresaDb } = await supabase
+        // B. Verificación de expedientes previos (Control de Renovaciones)
+        const { data: empresaDb, error: dbError } = await supabase
           .from('empresas')
           .select(`id, expedientes(codigo, estado)`)
-          .eq('ruc', resData.data.ruc)
+          .eq('ruc', resData.data.ruc || ruc)
           .maybeSingle();
 
-        if (empresaDb && empresaDb.expedientes) {
-          const aprobada = empresaDb.expedientes.find(exp => exp.estado === 'Aprobado');
+        // Optional Chaining (?.) en empresaDb y expedientes para evitar errores de lectura
+        if (empresaDb?.expedientes && Array.isArray(empresaDb.expedientes)) {
+          const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
           if (aprobada) {
-            setLicenciaPrevia(aprobada); // Se identificó una licencia aprobada previamente
+            setLicenciaPrevia(aprobada); 
           }
         }
 
       } else {
-        setError('RUC no encontrado en el padrón de SUNAT');
+        // Maneja el caso donde la API responde pero el RUC no es válido
+        setError(resData?.message || 'RUC no encontrado o inactivo en SUNAT.');
       }
     } catch (err) {
-      console.error(err);
-      setError('Error al conectar con los servidores.');
+      console.error("Error capturado:", err);
+      // Evita la pantalla blanca mostrando el error en la interfaz
+      setError('Error al conectar con los servidores. Verifique su conexión o intente más tarde.');
     } finally {
       setBuscandoSunat(false);
     }
@@ -103,14 +108,13 @@ export default function Login() {
 
       if (errEmpresa) throw new Error("Error al registrar empresa: " + errEmpresa.message);
 
-      // Determinación del flujo de negocio (Renovación vs Trámite Nuevo)
       const tipoTramite = (licenciaPrevia && cambiosEstructurales === false) ? 'renovacion_automatica' : 'nuevo';
       
       navigate('/solicitud', { 
         state: { 
-          empresaId: empresaDb.id, 
+          empresaId: empresaDb?.id, 
           tipoTramite: tipoTramite,
-          razonSocial: empresaValidada.razonSocial
+          razonSocial: empresaValidada?.razonSocial || 'Empresa'
         } 
       });
 
@@ -149,7 +153,6 @@ export default function Login() {
                 maxLength={11}
                 value={ruc} 
                 onChange={(e) => {
-                  // Filtro estricto: solo permite números del 0 al 9
                   const valorSoloNumeros = e.target.value.replace(/\D/g, '');
                   if (valorSoloNumeros.length <= 11) {
                     setRuc(valorSoloNumeros);
@@ -164,7 +167,7 @@ export default function Login() {
             {!empresaValidada && (
               <button 
                 type="submit" 
-                disabled={buscandoSunat}
+                disabled={buscandoSunat || ruc.length !== 11}
                 className="bg-slate-800 text-white px-6 py-3 rounded-xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 disabled:opacity-70 font-semibold shadow-md"
               >
                 {buscandoSunat ? 'Validando...' : <><Search className="w-5 h-5"/> SUNAT</>}
@@ -183,6 +186,7 @@ export default function Login() {
           </Link>
         </div>
 
+        {/* Agregamos ?. en toda la interfaz visual para prevenir bloqueos de renderizado */}
         {empresaValidada && (
           <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in mt-6">
             <div className="bg-green-50 border border-green-300 p-5 rounded-xl mb-4 shadow-sm">
@@ -196,7 +200,7 @@ export default function Login() {
                   <label className="block text-xs font-bold text-green-800 mb-1">Razón Social</label>
                   <input 
                     type="text" 
-                    value={empresaValidada.razonSocial} 
+                    value={empresaValidada?.razonSocial || ''} 
                     disabled 
                     className="w-full p-2 bg-white border border-green-200 rounded text-sm text-slate-700 font-semibold cursor-not-allowed" 
                   />
@@ -205,25 +209,24 @@ export default function Login() {
                   <label className="block text-xs font-bold text-green-800 mb-1">Domicilio Fiscal</label>
                   <input 
                     type="text" 
-                    value={empresaValidada.domicilioFiscal} 
+                    value={empresaValidada?.domicilioFiscal || ''} 
                     disabled 
                     className="w-full p-2 bg-white border border-green-200 rounded text-sm text-slate-700 font-semibold cursor-not-allowed" 
                   />
                 </div>
                 <div>
-                  <p className="text-xs text-green-700 mt-1">Estado: <span className="font-bold">{empresaValidada.estado}</span> | Condición: <span className="font-bold">{empresaValidada.condicion}</span></p>
+                  <p className="text-xs text-green-700 mt-1">Estado: <span className="font-bold">{empresaValidada?.estado || 'N/A'}</span> | Condición: <span className="font-bold">{empresaValidada?.condicion || 'N/A'}</span></p>
                 </div>
               </div>
             </div>
 
-            {/* Modalidad de Renovación o Modificación Estructural */}
             {licenciaPrevia && (
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 shadow-inner">
                 <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
                   <RefreshCcw className="w-4 h-4" /> Renovación de Licencia Detectada
                 </h3>
                 <p className="text-xs text-blue-800 mb-3">
-                  Su local ya cuenta con el expediente <strong>{licenciaPrevia.codigo}</strong>. Para continuar, declare lo siguiente:
+                  Su local ya cuenta con el expediente <strong>{licenciaPrevia?.codigo}</strong>. Para continuar, declare lo siguiente:
                 </p>
                 
                 <div className="space-y-2">
@@ -266,7 +269,6 @@ export default function Login() {
         )}
       </div>
 
-      {/* --- ACCESO INSTITUCIONAL PARA EL INSPECTOR --- */}
       <div className="mt-8 text-center animate-fade-in">
         <Link 
           to="/inspector"
