@@ -123,9 +123,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-4 font-sans">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-4 font-sans">
       <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-2xl w-full max-w-lg border-t-8 border-blue-900 transition-all duration-300">
-        
+
         <div className="flex flex-col items-center mb-8 text-center">
           <div className="bg-blue-900 p-4 rounded-full mb-4 shadow-lg ring-4 ring-blue-50">
             <Building2 className="text-white w-10 h-10" />
@@ -258,6 +258,17 @@ export default function Login() {
           </form>
         )}
       </div>
+
+      {/* --- ACCESO INSTITUCIONAL PARA EL INSPECTOR --- */}
+      <div className="mt-8 text-center animate-fade-in">
+        <button 
+          onClick={() => navigate('/inspector')} 
+          className="text-slate-400 hover:text-blue-900 text-sm font-semibold transition-colors border-b border-transparent hover:border-blue-900 pb-0.5"
+        >
+          Acceso Institucional
+        </button>
+      </div>
+
     </div>
   );
 }

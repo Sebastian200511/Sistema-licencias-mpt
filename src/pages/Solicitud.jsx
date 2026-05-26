@@ -272,15 +272,6 @@ export default function Solicitud() {
                   >
                     {loading ? 'Conectando con Mercado Pago...' : 'Pagar S/ 180.00 Oficial'}
                   </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => generarBotonDePago(10)}
-                    disabled={loading}
-                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-lg text-xs transition border border-gray-300 shadow-sm"
-                  >
-                    {loading ? 'Conectando con Mercado Pago...' : 'Demo en Vivo: Probar con Yape (S/ 10.00)'}
-                  </button>
                 </div>
               )}
             </div>
