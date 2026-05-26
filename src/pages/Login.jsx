@@ -7,14 +7,14 @@ export default function Login() {
   const navigate = useNavigate();
   const [ruc, setRuc] = useState('');
   const [empresaValidada, setEmpresaValidada] = useState(null);
-  const [licenciaPrevia, setLicenciaPrevia] = useState(null); // NUEVO: Para saber si ya es cliente
-  const [cambiosEstructurales, setCambiosEstructurales] = useState(null); // NUEVO: HU08 vs HU09
+  const [licenciaPrevia, setLicenciaPrevia] = useState(null);
+  const [cambiosEstructurales, setCambiosEstructurales] = useState(null);
   
   const [error, setError] = useState('');
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
 
-  // 1. Consulta a la API de SUNAT + Verificación Interna
+  // Integración con API externa (SUNAT) y validación interna
   const handleConsultarRUC = async (e) => {
     e.preventDefault();
     setError('');
@@ -30,7 +30,7 @@ export default function Login() {
     setBuscandoSunat(true);
 
     try {
-      // A. Consultar SUNAT
+      // A. Consultar padrón SUNAT
       const token = "be1d3141d0ee425615d12760d06e97807b39ccacb0fdd4d4bb19e768ab7ba970"; 
       const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
         method: 'GET',
@@ -51,7 +51,7 @@ export default function Login() {
           condicion: resData.data.condicion
         });
 
-        // B. ÉPICA 3: Verificar internamente si ya tiene licencia previa
+        // B. Verificación de expedientes previos (Control de Renovaciones - HU08/HU09)
         const { data: empresaDb } = await supabase
           .from('empresas')
           .select(`id, expedientes(codigo, estado)`)
@@ -61,7 +61,7 @@ export default function Login() {
         if (empresaDb && empresaDb.expedientes) {
           const aprobada = empresaDb.expedientes.find(exp => exp.estado === 'Aprobado');
           if (aprobada) {
-            setLicenciaPrevia(aprobada); // ¡Es cliente antiguo!
+            setLicenciaPrevia(aprobada); // Se identificó una licencia aprobada previamente
           }
         }
 
@@ -76,12 +76,12 @@ export default function Login() {
     }
   };
 
-  // 2. Creación de Empresa y Enrutamiento (Renovación vs Trámite Nuevo)
+  // Registro de empresa y enrutamiento según tipo de trámite
   const handleSubmitFinal = async (e) => {
     e.preventDefault();
     if (!empresaValidada) return;
     
-    // Si tiene licencia previa, obligamos a que responda si hubo cambios
+    // Validación de obligatoriedad para clientes con licencia previa
     if (licenciaPrevia && cambiosEstructurales === null) {
       setError('Debe indicar si su local ha sufrido modificaciones.');
       return;
@@ -103,9 +103,9 @@ export default function Login() {
 
       if (errEmpresa) throw new Error("Error al registrar empresa: " + errEmpresa.message);
 
+      // Determinación del flujo de negocio (Renovación vs Trámite Nuevo)
       const tipoTramite = (licenciaPrevia && cambiosEstructurales === false) ? 'renovacion_automatica' : 'nuevo';
       
-      // Enviamos los datos directamente por la memoria de navegación
       navigate('/solicitud', { 
         state: { 
           empresaId: empresaDb.id, 
@@ -165,18 +165,19 @@ export default function Login() {
             )}
           </div>
         </form>
+
         <div className="mt-8 pt-6 border-t border-slate-200 text-center">
-  <p className="text-sm text-slate-500 mb-2">¿Ya realizó su solicitud?</p>
-  <button 
-    onClick={() => navigate('/seguimiento')} 
-    className="text-blue-900 font-bold hover:underline flex items-center justify-center gap-2 mx-auto"
-  >
-    <Search className="w-4 h-4" /> Consultar el estado de mi trámite
-  </button>
-</div>
+          <p className="text-sm text-slate-500 mb-2">¿Ya realizó su solicitud?</p>
+          <button 
+            onClick={() => navigate('/seguimiento')} 
+            className="text-blue-900 font-bold hover:underline flex items-center justify-center gap-2 mx-auto"
+          >
+            <Search className="w-4 h-4" /> Consultar el estado de mi trámite
+          </button>
+        </div>
 
         {empresaValidada && (
-          <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in">
+          <form onSubmit={handleSubmitFinal} className="space-y-5 animate-fade-in mt-6">
             <div className="bg-green-50 border border-green-300 p-5 rounded-xl mb-4 shadow-sm">
               <div className="flex items-center gap-2 mb-4 border-b border-green-200 pb-2">
                 <CheckCircle2 className="text-green-700 w-5 h-5" />
@@ -208,7 +209,7 @@ export default function Login() {
               </div>
             </div>
 
-            {/* --- SECCIÓN ÉPICA 3: RENOVACIÓN VS MODIFICACIÓN --- */}
+            {/* Modalidad de Renovación o Modificación Estructural */}
             {licenciaPrevia && (
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 shadow-inner">
                 <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
@@ -223,7 +224,7 @@ export default function Login() {
                     <input type="radio" name="cambios" checked={cambiosEstructurales === false} onChange={() => setCambiosEstructurales(false)} className="w-4 h-4 text-blue-600 focus:ring-blue-600" />
                     <div>
                       <p className="text-sm font-bold text-slate-700">Sin cambios estructurales</p>
-                      <p className="text-xs text-slate-500">Renovación automática express (HU08)</p>
+                      <p className="text-xs text-slate-500">Renovación automática express</p>
                     </div>
                   </label>
 
@@ -231,7 +232,7 @@ export default function Login() {
                     <input type="radio" name="cambios" checked={cambiosEstructurales === true} onChange={() => setCambiosEstructurales(true)} className="w-4 h-4 text-orange-500 focus:ring-orange-500" />
                     <div>
                       <p className="text-sm font-bold text-slate-700">Con modificaciones físicas</p>
-                      <p className="text-xs text-slate-500 flex items-center gap-1"><Hammer className="w-3 h-3"/> Requiere nuevos planos e inspección (HU09)</p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1"><Hammer className="w-3 h-3"/> Requiere nuevos planos e inspección</p>
                     </div>
                   </label>
                 </div>
@@ -241,7 +242,7 @@ export default function Login() {
             <div className="pt-2 flex flex-col sm:flex-row gap-3">
               <button 
                 type="button" 
-                onClick={() => { setEmpresaValidada(null); setRuc(''); setLicenciaPrevia(null); }}
+                onClick={() => { setEmpresaValidada(null); setRuc(''); setLicenciaPrevia(null); setCambiosEstructurales(null); }}
                 className="px-4 py-3 border-2 border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold transition-all"
               >
                 Cambiar RUC

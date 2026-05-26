@@ -9,7 +9,7 @@ export default function Seguimiento() {
   const [formData, setFormData] = useState({ ruc: '', codigo: '' });
   const [tramite, setTramite] = useState(null);
   const [empresa, setEmpresa] = useState(null);
-  const [ultimaInspeccion, setUltimaInspeccion] = useState(null); // NUEVO: Para guardar la inspección
+  const [ultimaInspeccion, setUltimaInspeccion] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,10 +30,8 @@ export default function Seguimiento() {
       if (expError || !expData) throw new Error('Expediente no encontrado.');
       if (expData.empresas.ruc !== formData.ruc.trim()) throw new Error('El RUC no coincide.');
 
-      // CORRECCIÓN: Buscamos específicamente la inspección que tiene la observación
       if (expData.inspecciones && expData.inspecciones.length > 0) {
-        
-        // 1. Intentamos buscar la inspección que causó la observación
+        // Buscar la inspección que causó la observación
         const inspeccionConObservacion = expData.inspecciones.find(
           insp => insp.estado === 'Observado' && insp.observaciones
         );
@@ -41,7 +39,7 @@ export default function Seguimiento() {
         if (inspeccionConObservacion) {
           setUltimaInspeccion(inspeccionConObservacion);
         } else {
-          // 2. Si no la encuentra (por si acaso), ordenamos por fecha de creación de forma segura
+          // Fallback: ordenar por fecha de creación
           const ordenadasPorFecha = expData.inspecciones.sort(
             (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
           );
@@ -173,7 +171,7 @@ export default function Seguimiento() {
                 {getStatusUI(tramite.estado).texto}
               </h3>
 
-              {/* BLOQUE DE OBSERVACIONES PARA EL DUEÑO DEL NEGOCIO */}
+              {/* Observaciones del negocio */}
               {tramite.estado === 'Observado' && ultimaInspeccion && (
                 <div className="mt-4 p-5 bg-orange-50 border border-orange-200 rounded-lg text-left w-full shadow-inner">
                   <p className="text-sm font-bold text-orange-900 flex items-center gap-2 mb-2">

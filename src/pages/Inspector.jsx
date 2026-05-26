@@ -72,12 +72,13 @@ export default function Inspector() {
     setError('');
     setMensajeExito('');
 
-    // HU06: Exigir al inspector que anote la observación
     let textoObservacion = null;
+    
+    // Validar captura de observaciones (HU06)
     if (nuevoEstado === 'Observado') {
-      textoObservacion = window.prompt("HU06: Por favor, detalle las observaciones encontradas en el local para registrarlas en el expediente:");
+      textoObservacion = window.prompt("HU06: Detalle las observaciones encontradas en el local para registrarlas en el expediente:");
       
-      // Si el inspector cancela el cuadro o lo deja vacío, detenemos el proceso
+      // Abortar si no se proporciona justificación
       if (!textoObservacion || textoObservacion.trim() === "") {
         return; 
       }
@@ -105,7 +106,7 @@ export default function Inspector() {
           fecha_programada: new Date().toISOString().split('T')[0],
           estado: nuevoEstado === 'Aprobado' ? 'Conforme' : nuevoEstado,
           fecha_segunda_visita: fechaSegundaVisita,
-          observaciones: textoObservacion // Guardamos lo que el inspector tipeó
+          observaciones: textoObservacion
         }]);
 
       if (inspError) throw inspError;
@@ -196,7 +197,7 @@ export default function Inspector() {
             {expedientes.map((exp) => {
               const inspeccionAsignada = exp.inspecciones && exp.inspecciones[0];
               
-              // Verificamos si es una URL real de internet o texto heredado de pruebas anteriores
+              // Validar formato de URL del plano
               const tienePlanoUrlReal = exp.plano_url && exp.plano_url.startsWith('http');
 
               return (
@@ -222,7 +223,6 @@ export default function Inspector() {
                       </div>
                     )}
 
-                    {/* ENLACE REAL DE DESCARGA O APERTURA (Cero simulaciones) */}
                     <div className="pt-2">
                       {tienePlanoUrlReal ? (
                         <a 
@@ -231,11 +231,11 @@ export default function Inspector() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2 px-3 rounded-lg border border-blue-200 transition"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> Abrir/Descargar Plano Original (PDF/Imagen)
+                          <ExternalLink className="w-3.5 h-3.5" /> Abrir Documento Adjunto
                         </a>
                       ) : (
                         <span className="text-xs text-slate-400 italic bg-slate-50 p-1.5 border rounded">
-                          Archivo: {exp.plano_url} (Registro antiguo sin Storage)
+                          Archivo: {exp.plano_url} (Registro heredado)
                         </span>
                       )}
                     </div>

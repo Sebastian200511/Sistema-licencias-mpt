@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, RefreshCcw, Calendar, Copy } from 'lucide-react';
+import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, Calendar, Copy } from 'lucide-react';
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
 
 export default function Solicitud() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // 1. CREDENCIALES DE MERCADO PAGO (Leídas de forma segura)
+  // Inicialización de credenciales de Mercado Pago
   const MP_PUBLIC_KEY = import.meta.env.VITE_MP_PUBLIC_KEY; 
   const MP_ACCESS_TOKEN = import.meta.env.VITE_MP_ACCESS_TOKEN;
-  // Inicializamos Mercado Pago
   initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-PE' });
 
   const { empresaId, tipoTramite, razonSocial } = location.state || {};
@@ -22,24 +21,22 @@ export default function Solicitud() {
   const [resultadoTramite, setResultadoTramite] = useState(null);
   const [error, setError] = useState('');
   
-  // Estados para Mercado Pago
   const [preferenceId, setPreferenceId] = useState(null);
   const [pagoAprobado, setPagoAprobado] = useState(false);
 
   const esRenovacionExpress = tipoTramite === 'renovacion_automatica';
 
-  // Efecto para detectar si Mercado Pago nos devolvió a esta página tras un pago exitoso
+  // Validación de retorno de pasarela de pagos (auto_return)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('status') === 'approved' || urlParams.get('collection_status') === 'approved') {
       setPagoAprobado(true);
-      // Recuperamos el estado de sessionStorage en caso de que la redirección lo haya borrado
+      // Restauración de estado de sesión post-redirección
       const savedState = JSON.parse(sessionStorage.getItem('mpt_tramite_state'));
       if (savedState && !empresaId) {
         navigate(location.pathname, { state: savedState, replace: true });
       }
     } else if (empresaId) {
-      // Guardamos en sessionStorage por si Mercado Pago hace redirección
       sessionStorage.setItem('mpt_tramite_state', JSON.stringify(location.state));
     } else if (!empresaId && !urlParams.get('status')) {
       navigate('/');
@@ -54,7 +51,7 @@ export default function Solicitud() {
     }
   };
 
-  // 2. FUNCIÓN QUE CREA EL COBRO EN MERCADO PAGO (Ahora recibe el monto dinámico)
+  // Generación de preferencia de cobro dinámico
   const generarBotonDePago = async (montoACobrar) => {
     setLoading(true);
     setError('');
@@ -70,7 +67,7 @@ export default function Solicitud() {
             {
               title: montoACobrar === 180 ? 'Tasa por Derecho de Trámite - Licencia MPT' : 'Demo Prueba Técnica Yape',
               description: `Empresa: ${razonSocial}`,
-              unit_price: montoACobrar, // Aquí inyectamos los 180 o los 2 soles
+              unit_price: montoACobrar,
               quantity: 1,
               currency_id: 'PEN'
             }
@@ -213,7 +210,7 @@ export default function Solicitud() {
       <main className="max-w-2xl mx-auto mt-8 p-4">
         <div className="bg-white p-8 rounded-xl shadow-md">
           <div className="mb-6 border-b pb-4">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <FileText className="text-blue-700 w-6 h-6" /> Requisitos y Pago
             </h2>
             <p className="text-gray-500 text-sm mt-1">Empresa: <strong>{razonSocial}</strong></p>
@@ -227,7 +224,7 @@ export default function Solicitud() {
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="mx-auto text-gray-400 w-12 h-12 mb-2" />
                 <label className="cursor-pointer block">
-                  <span className="bg-blue-100 text-blue-700 font-semibold px-4 py-2 rounded text-sm hover:bg-blue-200">
+                  <span className="bg-blue-100 text-blue-700 font-semibold px-4 py-2 rounded text-sm hover:bg-blue-200 transition">
                     Adjuntar Plano Estructural
                   </span>
                   <input type="file" accept=".pdf,image/*" onChange={handleFileChange} className="hidden" />
@@ -253,7 +250,6 @@ export default function Solicitud() {
                   <CheckCircle className="w-5 h-5" /> ¡Pago Verificado Exitosamente por Mercado Pago!
                 </div>
               ) : preferenceId ? (
-                // 3. AQUÍ SE RENDERIZA LA PASARELA REAL DE MERCADO PAGO
                 <div className="mt-4">
                   <Wallet initialization={{ preferenceId: preferenceId }} />
                 </div>
