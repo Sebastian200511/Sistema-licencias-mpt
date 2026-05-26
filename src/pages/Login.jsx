@@ -50,10 +50,22 @@ export default function Login() {
       }
 
       if (resData?.success && resData?.data) {
+        
+        // --- NUEVO CANDADO: VALIDACIÓN DE JURISDICCIÓN (TRUJILLO) ---
+        const direccionSunat = resData.data.direccion || '';
+        const esDeTrujillo = direccionSunat.toUpperCase().includes('TRUJILLO');
+
+        if (!esDeTrujillo) {
+          setError('Operación rechazada: El domicilio fiscal de este RUC no pertenece a la jurisdicción de Trujillo.');
+          setBuscandoSunat(false);
+          return; 
+        }
+        // ------------------------------------------------------------
+
         setEmpresaValidada({
           ruc: resData.data.ruc || ruc,
           razonSocial: resData.data.nombre_o_razon_social || 'Razón Social No Disponible',
-          domicilioFiscal: resData.data.direccion || 'Dirección No Disponible',
+          domicilioFiscal: direccionSunat, // Aquí reutilizamos la variable
           estado: resData.data.estado || 'NO DEFINIDO',
           condicion: resData.data.condicion || 'NO DEFINIDO'
         });
