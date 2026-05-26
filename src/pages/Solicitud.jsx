@@ -21,6 +21,8 @@ export default function Solicitud() {
   const [resultadoTramite, setResultadoTramite] = useState(null);
   const [error, setError] = useState('');
   
+  const [emailContacto, setEmailContacto] = useState('');
+
   const [preferenceId, setPreferenceId] = useState(null);
   const [pagoAprobado, setPagoAprobado] = useState(false);
 
@@ -130,26 +132,33 @@ export default function Solicitud() {
   const handleSubmitTramite = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-
-    if (!esRenovacionExpress && !fileObject) {
-      setError('Por favor, adjunte el plano estructural (PDF) antes de finalizar.');
-      setLoading(false);
+    
+    // 1. Validación de correo (Obligatorio para la seguridad)
+    if (!emailContacto || !emailContacto.includes('@')) {
+      setError('Por favor, ingrese un correo electrónico válido para enviarle su código.');
       return;
     }
+
+    // 2. Validación de archivo (Solo si es nuevo trámite)
+    if (!esRenovacionExpress && !fileObject) {
+      setError('Por favor, adjunte el plano estructural antes de finalizar.');
+      return;
+    }
+
+    // 3. Validación de pago
     if (!pagoAprobado) {
       setError('Debe completar el pago en la pasarela para proceder.');
-      setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       let planoPublicUrl = 'No requiere (Renovación)';
 
+      // Subida de plano si corresponde
       if (!esRenovacionExpress && fileObject) {
-        const fileExt = fileObject.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
-
+        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.pdf`;
         const { error: uploadError } = await supabase.storage.from('planos').upload(fileName, fileObject);
         if (uploadError) throw uploadError;
 
@@ -157,38 +166,53 @@ export default function Solicitud() {
         planoPublicUrl = urlData.publicUrl;
       }
 
-      const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
-      const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
+      const codigoExpediente = `MPT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const estadoInicial = esRenovacionExpress ? 'Aprobado' : 'Pendiente';
 
+      // Registro en Base de Datos (Solo con correo)
       const { data: expData, error: insertError } = await supabase
         .from('expedientes')
-        .insert([{ codigo: codigoExpediente, empresa_id: empresaId, plano_url: planoPublicUrl, pago_realizado: true, estado: estadoInicial }])
+        .insert([{ 
+          codigo: codigoExpediente, 
+          empresa_id: empresaId, 
+          plano_url: planoPublicUrl, 
+          pago_realizado: true, 
+          estado: estadoInicial,
+          correo_contacto: emailContacto // Solo correo
+        }])
         .select().single();
 
       if (insertError) throw insertError;
 
-      let fechaVisitaStr = null;
+      // Programar inspección si no es renovación
       if (!esRenovacionExpress) {
         const fechaVisita = new Date();
         fechaVisita.setDate(fechaVisita.getDate() + 4); 
-        fechaVisitaStr = fechaVisita.toISOString().split('T')[0];
-
-        const { error: inspError } = await supabase.from('inspecciones')
-          .insert([{ expediente_id: expData.id, fecha_programada: fechaVisitaStr, estado: 'Programada' }]);
-
-        if (inspError) throw inspError;
+        await supabase.from('inspecciones').insert([{ 
+          expediente_id: expData.id, 
+          fecha_programada: fechaVisita.toISOString().split('T')[0], 
+          estado: 'Programada' 
+        }]);
       }
 
-      setResultadoTramite({ codigo: codigoExpediente, esExpress: esRenovacionExpress, fechaVisita: fechaVisitaStr });
+      // Simulación profesional de notificación al correo
+      console.log("--- NOTIFICACIÓN MUNICIPAL ENVIADA ---");
+      console.log("Destinatario:", emailContacto);
+      console.log("Código de Seguimiento:", codigoExpediente);
+      
+      setResultadoTramite({ codigo: codigoExpediente, esExpress: esRenovacionExpress, email: emailContacto });
       sessionStorage.removeItem('mpt_saved_pdf_name');
       sessionStorage.removeItem('mpt_saved_pdf_data');
+
     } catch (err) {
-      setError('Error al registrar el trámite en la base de datos.');
+      console.error(err);
+      setError('Error al registrar el trámite: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
+//prueba
+  
 
   if (!empresaId && !pagoAprobado) return null;
 
@@ -301,6 +325,18 @@ export default function Solicitud() {
                   </button>
                 </div>
               )}
+            </div>
+            {/* --- AQUÍ DEBES PONER EL CAMPO DE CORREO --- */}
+            <div className="bg-white p-6 rounded-xl shadow-sm mb-6 border border-gray-200">
+              <label className="text-xs font-bold block mb-1">Correo Electrónico para notificaciones</label>
+              <input 
+                type="email" 
+                value={emailContacto} // Asegúrate de tener este valor
+                onChange={(e) => setEmailContacto(e.target.value)} 
+                className="w-full p-3 border border-gray-300 rounded-lg" 
+                placeholder="nombre@empresa.com" 
+                required 
+              />
             </div>
 
             {/* --- BLOQUE DE VALIDACIÓN DINÁMICA DE ENTRADAS (HU02) --- */}
