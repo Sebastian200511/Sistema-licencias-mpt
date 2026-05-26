@@ -259,7 +259,7 @@ export default function Inspector() {
                       </div>
                     ) : exp.estado === 'Observado' ? (
                       <div className="flex flex-col gap-2 w-full md:w-auto border border-orange-200 bg-orange-50 p-2.5 rounded-lg shadow-sm">
-                        <span className="text-xs font-bold text-orange-800 text-center uppercase tracking-wider">Acciones de 2da Visita (HU07)</span>
+                        <span className="text-xs font-bold text-orange-800 text-center uppercase tracking-wider">Acciones de 2da Visita</span>
                         <div className="flex gap-2">
                           <button 
                             onClick={() => actualizarEstadoTramite(exp.id, 'Aprobado')}

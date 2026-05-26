@@ -100,8 +100,8 @@ export default function Solicitud() {
     setError('');
     setLoading(true);
 
-    if (!esRenovacionExpress && !fileObject && !pagoAprobado) {
-      setError('Por favor, adjunte el plano estructural del local.');
+    if (!esRenovacionExpress && !fileObject) {
+      setError('Por favor, adjunte el plano estructural (PDF) antes de finalizar.');
       setLoading(false);
       return;
     }
@@ -220,7 +220,7 @@ export default function Solicitud() {
 
           <form onSubmit={handleSubmitTramite} className="space-y-6">
             
-            {!esRenovacionExpress && !pagoAprobado && (
+            {!esRenovacionExpress && (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="mx-auto text-gray-400 w-12 h-12 mb-2" />
                 <label className="cursor-pointer block">
