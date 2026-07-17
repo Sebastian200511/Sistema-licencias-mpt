@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, Lock, DollarSign, LogOut } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
+import { cajaService } from '../services/cajaService';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
 
@@ -18,6 +19,59 @@ export default function Cajero() {
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null);
   const [fileObject, setFileObject] = useState(null);
   const [resultadoTramite, setResultadoTramite] = useState(null);
+
+  // Módulo de Caja
+  const [sesionCaja, setSesionCaja] = useState(null);
+  const [montoInicial, setMontoInicial] = useState('');
+  const [modalVuelto, setModalVuelto] = useState(false);
+  const [efectivoRecibido, setEfectivoRecibido] = useState('');
+  const [modalCierre, setModalCierre] = useState(false);
+  const [montoFisicoCierre, setMontoFisicoCierre] = useState('');
+  const [cajaCerradaResult, setCajaCerradaResult] = useState(null);
+  const TARIFA = 3.00;
+
+  useEffect(() => {
+    cargarCaja();
+  }, []);
+
+  const cargarCaja = async () => {
+    try {
+      const caja = await cajaService.obtenerCajaAbierta();
+      setSesionCaja(caja);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const abrirCaja = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const caja = await cajaService.abrirCaja(montoInicial);
+      setSesionCaja(caja);
+    } catch (err) {
+      setError('Error al abrir caja: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cerrarCaja = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const totalEsperado = sesionCaja.monto_inicial + 0; // Se ajustaría con BD si es necesario
+      const caja = await cajaService.cerrarCaja(sesionCaja.id, totalEsperado, montoFisicoCierre);
+      setSesionCaja(null);
+      setCajaCerradaResult(caja);
+      setModalCierre(false);
+    } catch (err) {
+      setError('Error al cerrar caja: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setRuc('');
@@ -87,7 +141,7 @@ export default function Cajero() {
     }
   };
 
-  const procesarTramiteCaja = async () => {
+  const registrarTramitePresencial = async () => {
     setError('');
     setLoading(true);
 
@@ -117,6 +171,7 @@ export default function Cajero() {
         empresa_id: empresaDb.id,
         plano_url: planoPublicUrl,
         pago_realizado: true,
+        monto_pagado: TARIFA,
         estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente'
       });
 
@@ -142,7 +197,108 @@ export default function Cajero() {
   };
 
   return (
-    <div className="bg-slate-50">
+    <div className="bg-slate-50 relative">
+      {cajaCerradaResult && (
+        <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-slate-800 mb-6">
+          <LogOut className="mx-auto w-16 h-16 text-slate-800 mb-4" />
+          <h2 className="text-2xl font-bold">Turno Cerrado Correctamente</h2>
+          <p className="mt-2 text-slate-600">Sistema: S/ {cajaCerradaResult.monto_calculado} | Físico: S/ {cajaCerradaResult.monto_fisico}</p>
+          <Button onClick={() => setCajaCerradaResult(null)} variant="outline" className="mt-4">Nueva Sesión</Button>
+        </div>
+      )}
+
+      {!sesionCaja && !cajaCerradaResult ? (
+        <div className="bg-white p-8 rounded-xl shadow-xl max-w-md mx-auto mt-10 border border-slate-200 text-center">
+          <DollarSign className="mx-auto w-16 h-16 text-teal-600 mb-4" />
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Apertura de Caja</h2>
+          <p className="text-slate-600 mb-6 text-sm">Debe registrar su "sencillo" (Monto Inicial) para comenzar a cobrar trámites físicos.</p>
+          {error && <Alert type="error" message={error} />}
+          <form onSubmit={abrirCaja} className="space-y-4">
+            <input 
+              type="number" step="0.01" min="0" required 
+              value={montoInicial} onChange={(e) => setMontoInicial(e.target.value)}
+              placeholder="Ej: 50.00"
+              className="w-full p-3 border border-slate-300 rounded-lg text-center text-xl font-bold"
+            />
+            <Button type="submit" isLoading={loading} className="w-full">
+              Abrir Caja
+            </Button>
+          </form>
+        </div>
+      ) : sesionCaja ? (
+        <>
+          <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+            <div>
+              <p className="font-bold text-slate-800 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" /> Caja Abierta
+              </p>
+              <p className="text-xs text-slate-500">Monto Inicial: S/ {sesionCaja.monto_inicial.toFixed(2)}</p>
+            </div>
+            <Button variant="danger" onClick={() => setModalCierre(true)} className="px-4 py-2 text-sm">
+              Cuadrar y Cerrar
+            </Button>
+          </div>
+          
+          {modalCierre && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
+                <h3 className="text-xl font-bold mb-4">Cierre de Caja</h3>
+                <form onSubmit={cerrarCaja}>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">¿Cuánto dinero físico tiene en la caja?</label>
+                  <input type="number" step="0.01" min="0" required value={montoFisicoCierre} onChange={e => setMontoFisicoCierre(e.target.value)} className="w-full p-3 border rounded-lg text-xl mb-4 font-bold" />
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => setModalCierre(false)}>Cancelar</Button>
+                    <Button type="submit" variant="danger" className="flex-1" isLoading={loading}>Confirmar</Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {modalVuelto && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Calculadora de Vuelto</h3>
+                <div className="bg-slate-100 p-3 rounded-lg mb-4">
+                  <span className="text-sm text-slate-500">Monto a Cobrar</span>
+                  <p className="text-3xl font-black text-slate-800">S/ {TARIFA.toFixed(2)}</p>
+                </div>
+                
+                <div className="text-left mb-4">
+                  <label className="text-sm font-bold text-slate-700 block mb-1">Efectivo Recibido</label>
+                  <input 
+                    type="number" step="0.01" min={TARIFA} required 
+                    value={efectivoRecibido} 
+                    onChange={e => setEfectivoRecibido(e.target.value)}
+                    className="w-full p-3 border border-slate-300 rounded-lg text-xl font-bold"
+                  />
+                </div>
+
+                {efectivoRecibido && Number(efectivoRecibido) >= TARIFA && (
+                  <div className="bg-green-100 border border-green-300 p-3 rounded-lg mb-6">
+                    <span className="text-sm text-green-800 font-bold">Vuelto a Entregar</span>
+                    <p className="text-4xl font-black text-green-700">S/ {(Number(efectivoRecibido) - TARIFA).toFixed(2)}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setModalVuelto(false)}>Atrás</Button>
+                  <Button 
+                    type="button" 
+                    variant="success" 
+                    className="flex-1" 
+                    disabled={!efectivoRecibido || Number(efectivoRecibido) < TARIFA}
+                    onClick={() => {
+                      setModalVuelto(false);
+                      registrarTramitePresencial();
+                    }}
+                  >
+                    Confirmar Pago
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         
         {resultadoTramite ? (
           <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-teal-500">
@@ -224,7 +380,7 @@ export default function Cajero() {
                      <p className="font-bold">Pago en Caja Municipal</p>
                      <p className="text-xs text-slate-300">Tasa administrativa por Licencia</p>
                    </div>
-                   <p className="text-2xl font-bold font-mono">S/ 180.00</p>
+                   <p className="text-2xl font-bold font-mono">S/ {TARIFA.toFixed(2)}</p>
                 </div>
 
                 <div className="flex gap-3">
@@ -232,7 +388,7 @@ export default function Cajero() {
                     Cancelar
                   </button>
                   <Button 
-                  onClick={registrarTramitePresencial} 
+                  onClick={() => setModalVuelto(true)} 
                   isLoading={loading}
                   disabled={(!esRenovacionExpress && !fileObject) || !empresaValidada.ruc}
                   variant="primary"
@@ -244,6 +400,8 @@ export default function Cajero() {
             )}
           </div>
         )}
+        </>
+      ) : null}
     </div>
   );
 }

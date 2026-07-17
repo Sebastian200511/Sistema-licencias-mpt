@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
 import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
+import { apiPeruService } from '../services/apiPeruService';
+import { expedientesService } from '../services/expedientesService';
+
 
 export default function Login() {
   const navigate = useNavigate();
@@ -27,80 +29,41 @@ export default function Login() {
     }
 
     setBuscandoSunat(true);
-
     try {
-      const token = "73aae707fbb5c6faea3a40fd8fbb260bb68b273b73e4c2d5b0be476832ee9d1b"; 
-      const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const data = await apiPeruService.consultarRuc(ruc);
+
+      const calle = data.direccion || '';
+      const distrito = data.distrito || '';
+      const provincia = data.provincia || '';
+      const departamento = data.departamento || '';
+      
+      const ubicacionCompleta = `${calle} ${distrito} ${provincia} ${departamento}`.toUpperCase();
+      const esDeTrujillo = ubicacionCompleta.includes('TRUJILLO');
+
+      if (!esDeTrujillo) {
+        setError('Operación rechazada: El domicilio fiscal de este negocio no pertenece a la jurisdicción de Trujillo.');
+        setBuscandoSunat(false);
+        return; 
+      }
+
+      const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
+
+      setEmpresaValidada({
+        ruc: data.ruc || ruc,
+        razonSocial: data.nombre_o_razon_social || 'Razón Social No Disponible',
+        domicilioFiscal: direccionMostrar || 'Dirección No Disponible',
+        estado: data.estado_del_contribuyente || 'NO DEFINIDO',
+        condicion: data.condicion_de_domicilio || 'NO DEFINIDO'
       });
 
-      // --- CAMBIO 1: MENSAJE AMIGABLE PARA RUCS INVENTADOS ---
-      if (!response.ok) {
-        if (response.status === 400 || response.status === 404 || response.status === 422) {
-          throw new Error('El RUC ingresado no existe o no se encuentra registrado en SUNAT.');
-        }
-        throw new Error(`Error de conexión con el servidor (Estado: ${response.status})`);
-      }
+      const empresaDb = await expedientesService.obtenerEmpresaPorRuc(data.ruc || ruc);
 
-      let resData;
-      try {
-        resData = await response.json();
-      } catch (parseError) {
-        throw new Error('El servicio de SUNAT devolvió un formato inválido.');
-      }
-
-      if (resData?.success && resData?.data) {
-        
-        // --- CAMBIO 2: CANDADO JURISDICCIONAL (SOLO TRUJILLO) MEJORADO ---
-        // La API separa la calle, distrito y provincia. Unimos todo para que no se nos escape nada.
-        const calle = resData.data.direccion || '';
-        const distrito = resData.data.distrito || '';
-        const provincia = resData.data.provincia || '';
-        const departamento = resData.data.departamento || '';
-        
-        const ubicacionCompleta = `${calle} ${distrito} ${provincia} ${departamento}`.toUpperCase();
-        const esDeTrujillo = ubicacionCompleta.includes('TRUJILLO');
-
-        if (!esDeTrujillo) {
-          setError('Operación rechazada: El domicilio fiscal de este negocio no pertenece a la jurisdicción de Trujillo.');
-          setBuscandoSunat(false);
-          return; // Cortamos el flujo aquí
-        }
-
-        // Armamos una dirección elegante para mostrarla al cliente en pantalla
-        const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
-        // --------------------------------------------------------
-
-        setEmpresaValidada({
-          ruc: resData.data.ruc || ruc,
-          razonSocial: resData.data.nombre_o_razon_social || 'Razón Social No Disponible',
-          domicilioFiscal: direccionMostrar || 'Dirección No Disponible',
-          estado: resData.data.estado || 'NO DEFINIDO',
-          condicion: resData.data.condicion || 'NO DEFINIDO'
-        });
-
-        if (supabase) {
-          const { data: empresaDb } = await supabase
-            .from('empresas')
-            .select(`id, expedientes(codigo, estado)`)
-            .eq('ruc', resData.data.ruc || ruc)
-            .maybeSingle();
-
-          if (empresaDb?.expedientes && Array.isArray(empresaDb.expedientes)) {
-            const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
-            if (aprobada) setLicenciaPrevia(aprobada); 
-          }
-        }
-      } else {
-        setError(resData?.message || 'RUC no encontrado o inactivo en el padrón.');
+      if (empresaDb?.expedientes && Array.isArray(empresaDb.expedientes)) {
+        const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
+        if (aprobada) setLicenciaPrevia(aprobada); 
       }
     } catch (err) {
-      console.error("Error capturado:", err);
-      setError(err.message || 'Error de conexión. Verifique su internet.');
+      setError(err.message || 'Error al validar el RUC.');
     } finally {
       setBuscandoSunat(false);
     }

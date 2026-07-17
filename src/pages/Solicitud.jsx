@@ -164,88 +164,33 @@ export default function Solicitud() {
 
   // Generación de preferencia de cobro dinámico
 
-  const generarBotonDePago = async (montoACobrar) => {
-
+  const generarBotonDePago = async () => {
     setLoading(true);
-
     setError('');
 
     try {
-
-      const response = await fetch('/mp-api/checkout/preferences', {
-
+      const response = await fetch('http://localhost:3000/api/crear-preferencia', {
         method: 'POST',
-
-        headers: {
-
-          'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
-
-          'Content-Type': 'application/json'
-
-        },
-
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-
-          items: [
-
-            {
-
-              title: montoACobrar === 180 ? 'Tasa por Derecho de Trámite - Licencia MPT' : 'Demo Prueba Técnica Yape',
-
-              description: `Empresa: ${razonSocial}`,
-
-              unit_price: montoACobrar,
-
-              quantity: 1,
-
-              currency_id: 'PEN'
-
-            }
-
-          ],
-
-          back_urls: {
-
-            success: window.location.href,
-
-            failure: window.location.href,
-
-            pending: window.location.href
-
-          },
-
-          auto_return: 'approved',
-
+          razonSocial,
+          tipoTramite
         })
-
       });
-
-
 
       const data = await response.json();
 
       if (data.id) {
-
         setPreferenceId(data.id);
-
       } else {
-
         throw new Error('Error al generar la preferencia de pago.');
-
       }
-
     } catch (err) {
-
-      setError('Fallo al conectar con la pasarela de pagos.');
-
+      setError('Fallo al conectar con el backend de pagos.');
       console.error(err);
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
 
@@ -301,6 +246,7 @@ export default function Solicitud() {
         empresa_id: empresaId, 
         plano_url: planoPublicUrl, 
         pago_realizado: true, 
+        monto_pagado: 3.00,
         estado: estadoInicial 
       });
 
@@ -519,9 +465,7 @@ export default function Solicitud() {
                   </h3>
 
                 </div>
-
-                <span className="text-xl font-mono font-bold text-gray-900">S/ 180.00</span>
-
+                <span className="text-xl font-mono font-bold text-gray-900">S/ 3.00</span>
               </div>
 
 
@@ -550,16 +494,11 @@ export default function Solicitud() {
 
                     type="button"
 
-                    onClick={() => generarBotonDePago(180)}
-
+                    onClick={generarBotonDePago}
                     disabled={loading}
-
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-sm transition shadow-md"
-
                   >
-
-                    {loading ? 'Conectando con Mercado Pago...' : 'Pagar S/ 180.00 Oficial'}
-
+                    {loading ? 'Conectando con Mercado Pago...' : 'Pagar S/ 3.00 (Tarifa Oficial)'}
                   </button>
 
                 </div>
