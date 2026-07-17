@@ -25,9 +25,10 @@ export default function Institucional() {
       login(data.rol);
 
       // Enrutamiento inteligente basado en el rol (como en un entorno real)
-      if (data.rol === 'Inspector') {
+      const rolNormalizado = data.rol?.toLowerCase();
+      if (rolNormalizado === 'inspector') {
         navigate('/inspector');
-      } else if (data.rol === 'Cajero') {
+      } else if (rolNormalizado === 'cajero') {
         navigate('/cajero');
       } else {
         setError('El rol asignado no tiene un portal definido.');
