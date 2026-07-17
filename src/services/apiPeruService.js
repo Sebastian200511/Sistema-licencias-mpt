@@ -24,8 +24,8 @@ export const apiPeruService = {
       throw new Error(resData?.message || 'RUC inválido o no encontrado en SUNAT.');
     }
 
-    const estado = resData.data.estado_del_contribuyente;
-    const condicion = resData.data.condicion_de_domicilio;
+    const estado = resData.data.estado || resData.data.estado_del_contribuyente;
+    const condicion = resData.data.condicion || resData.data.condicion_de_domicilio;
 
     if (estado !== 'ACTIVO') {
       throw new Error(`El RUC no está ACTIVO. Estado actual: ${estado}`);

@@ -52,8 +52,8 @@ export default function Login() {
         ruc: data.ruc || ruc,
         razonSocial: data.nombre_o_razon_social || 'Razón Social No Disponible',
         domicilioFiscal: direccionMostrar || 'Dirección No Disponible',
-        estado: data.estado_del_contribuyente || 'NO DEFINIDO',
-        condicion: data.condicion_de_domicilio || 'NO DEFINIDO'
+        estado: data.estado || data.estado_del_contribuyente || 'NO DEFINIDO',
+        condicion: data.condicion || data.condicion_de_domicilio || 'NO DEFINIDO'
       });
 
       const empresaDb = await expedientesService.obtenerEmpresaPorRuc(data.ruc || ruc);
