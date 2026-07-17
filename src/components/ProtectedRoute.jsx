@@ -9,9 +9,14 @@ export default function ProtectedRoute({ allowedRoles }) {
     return <Navigate to="/institucional" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(userRole)) {
-    // Si está autenticado pero su rol no tiene permiso para esta ruta
-    return <Navigate to="/institucional" replace />;
+  if (allowedRoles) {
+    const normalizedUserRole = userRole?.toLowerCase();
+    const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
+    
+    if (!normalizedAllowedRoles.includes(normalizedUserRole)) {
+      // Si está autenticado pero su rol no tiene permiso para esta ruta
+      return <Navigate to="/institucional" replace />;
+    }
   }
 
   // Renderizar la ruta protegida (Outlet permite renderizar las subrutas)
