@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
 import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar } from 'lucide-react';
-import jsPDF from 'jspdf'; 
+import { expedientesService } from '../services/expedientesService';
+import { pdfGenerator } from '../utils/pdfGenerator';
 
 export default function Seguimiento() {
   const navigate = useNavigate();
@@ -27,13 +27,8 @@ export default function Seguimiento() {
     setLoading(true);
 
     try {
-      const { data: expData, error: expError } = await supabase
-        .from('expedientes')
-        .select('*, empresas ( ruc, razon_social, domicilio_fiscal ), inspecciones (*)')
-        .eq('codigo', formData.codigo.trim().toUpperCase())
-        .single();
+      const expData = await expedientesService.buscarExpediente(formData.codigo.trim().toUpperCase());
 
-      if (expError || !expData) throw new Error('Expediente no encontrado.');
       if (expData.empresas.ruc !== formData.ruc.trim()) throw new Error('El RUC no coincide.');
 
       if (expData.inspecciones && expData.inspecciones.length > 0) {
@@ -75,13 +70,9 @@ export default function Seguimiento() {
 
     try {
       // Usamos el nombre correcto de la columna: fecha_creacion
-      const { data, error: fetchError } = await supabase
-        .from('empresas')
-        .select(`ruc, expedientes(codigo, fecha_creacion)`)
-        .eq('ruc', formData.ruc.trim())
-        .single();
+      const data = await expedientesService.obtenerEmpresaPorRuc(formData.ruc.trim());
 
-      if (fetchError || !data || !data.expedientes || data.expedientes.length === 0) {
+      if (!data || !data.expedientes || data.expedientes.length === 0) {
         throw new Error('No se encontraron trámites registrados para este RUC.');
       }
 
@@ -107,21 +98,11 @@ export default function Seguimiento() {
     setSubsanacionLoading(true);
     setError('');
     try {
-        const fileExt = subsanacionFile.name.split('.').pop();
-        const fileName = `subsanacion-${tramite.codigo}-${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('planos').upload(fileName, subsanacionFile);
-        if (uploadError) throw uploadError;
-        
-        const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
-        
-        const { error: updateError } = await supabase.from('expedientes')
-          .update({ plano_url: urlData.publicUrl })
-          .eq('id', tramite.id);
-          
-        if (updateError) throw updateError;
+        const planoPublicUrl = await expedientesService.subirPlanoSubsanacion(tramite.codigo, subsanacionFile);
+        await expedientesService.actualizarPlanoExpediente(tramite.id, planoPublicUrl);
         
         setSubsanacionExito(true);
-        setTramite({...tramite, plano_url: urlData.publicUrl});
+        setTramite({...tramite, plano_url: planoPublicUrl});
     } catch (err) {
         setError('Error al subir documento de subsanación: ' + err.message);
     } finally {
@@ -130,57 +111,7 @@ export default function Seguimiento() {
   };
 
   const generarLicenciaPDF = () => {
-    const doc = new jsPDF();
-    const fechaEmision = new Date(tramite.fecha_creacion || new Date());
-    const fechaVencimiento = new Date(fechaEmision);
-    fechaVencimiento.setFullYear(fechaEmision.getFullYear() + 1);
-    
-    const estaVencida = new Date() > fechaVencimiento;
-    if (estaVencida) {
-      doc.setTextColor(200, 200, 200);
-      doc.setFontSize(80);
-      doc.text("VENCIDA", 50, 150, { angle: 45 });
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(30, 58, 138); 
-    doc.text("MUNICIPALIDAD PROVINCIAL DE TRUJILLO", 105, 30, { align: "center" });
-    
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text("LICENCIA DE FUNCIONAMIENTO DEFINITIVA", 105, 40, { align: "center" });
-    
-    doc.line(20, 45, 190, 45); 
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    
-    doc.text(`N° Expediente: ${tramite.codigo}`, 20, 60);
-    doc.text(`Fecha de Emisión: ${fechaEmision.toLocaleDateString()}`, 130, 60);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("DATOS DEL TITULAR Y ESTABLECIMIENTO", 20, 80);
-    
-    doc.setFont("helvetica", "normal");
-    doc.text(`Razón Social: ${empresa.razon_social}`, 20, 95);
-    doc.text(`RUC: ${empresa.ruc}`, 20, 105);
-    doc.text(`Ubicación del Local: ${empresa.domicilio_fiscal}`, 20, 115);
-    
-    doc.setFillColor(240, 248, 255);
-    doc.rect(20, 135, 170, 25, "F");
-    doc.setFont("helvetica", "bold");
-    doc.text("VIGENCIA DE LA LICENCIA: 01 AÑO", 105, 145, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.text(`Válido hasta: ${fechaVencimiento.toLocaleDateString()}`, 105, 153, { align: "center" });
-
-    doc.line(60, 220, 150, 220);
-    doc.setFont("helvetica", "bold");
-    doc.text("Subgerencia de Licencias y Comercialización", 105, 227, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.text("Municipalidad Provincial de Trujillo", 105, 233, { align: "center" });
-
-    doc.save(`Licencia_MPT_${tramite.codigo}.pdf`);
+    pdfGenerator.generarLicencia(tramite);
   };
 
   const getStatusUI = (estado) => {

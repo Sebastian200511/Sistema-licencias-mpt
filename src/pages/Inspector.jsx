@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
-import { ShieldCheck, ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, LogOut, ExternalLink } from 'lucide-react';
+import { ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, ExternalLink } from 'lucide-react';
+import { expedientesService } from '../services/expedientesService';
+import Alert from '../components/Alert';
+import Button from '../components/Button';
 
 export default function Inspector() {
-  const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [expedientes, setExpedientes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,40 +14,18 @@ export default function Inspector() {
   const cargarExpedientes = async () => {
     setLoading(true);
     try {
-      const hoyStr = new Date().toISOString().split('T')[0];
-      const { data, error: fetchError } = await supabase
-        .from('expedientes')
-        .select(`
-          *, 
-          empresas(ruc, razon_social, domicilio_fiscal),
-          inspecciones!inner(fecha_programada, estado)
-        `)
-        .eq('inspecciones.fecha_programada', hoyStr)
-        .order('fecha_creacion', { ascending: false });
-
-      if (fetchError) throw fetchError;
-      setExpedientes(data);
+      const expedientesDeHoy = await expedientesService.obtenerInspeccionesDeHoy();
+      setExpedientes(expedientesDeHoy);
     } catch (err) {
-      console.error('Error al cargar trámites:', err);
+      setError(err.message || 'Error al cargar trámites.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (localStorage.getItem('inst_session') === 'true' && localStorage.getItem('inst_role') === 'Inspector') {
-      setIsAuthenticated(true);
-      cargarExpedientes();
-    } else {
-      navigate('/institucional');
-    }
-  }, [navigate]);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    setIsAuthenticated(false);
-    navigate('/institucional');
-  };
+    cargarExpedientes();
+  }, []);
 
   const actualizarEstadoTramite = async (expedienteId, nuevoEstado) => {
     setError('');
@@ -67,36 +44,23 @@ export default function Inspector() {
     }
 
     try {
-      let fechaSegundaVisita = null;
-      if (nuevoEstado === 'Observado') {
-        const hoy = new Date();
-        hoy.setDate(hoy.getDate() + 42); // 30 días hábiles
-        fechaSegundaVisita = hoy.toISOString().split('T')[0];
-      }
-
-      const { error: updateError } = await supabase
-        .from('expedientes')
-        .update({ estado: nuevoEstado })
-        .eq('id', expedienteId);
-
-      if (updateError) throw updateError;
-
-      const { error: inspError } = await supabase
-        .from('inspecciones')
-        .insert([{
-          expediente_id: expedienteId,
-          fecha_programada: new Date().toISOString().split('T')[0],
-          estado: nuevoEstado === 'Aprobado' ? 'Conforme' : nuevoEstado,
-          fecha_segunda_visita: fechaSegundaVisita,
-          observaciones: textoObservacion
-        }]);
-
-      if (inspError) throw inspError;
+      await expedientesService.actualizarEstadoExpediente(expedienteId, nuevoEstado);
 
       if (nuevoEstado === 'Observado') {
+        const fechaFutura = new Date();
+        fechaFutura.setDate(fechaFutura.getDate() + 30);
+        const fechaSegundaVisita = fechaFutura.toISOString().split('T')[0];
+        
+        await expedientesService.crearInspeccion({
+          expediente_id: expedienteId, 
+          fecha_programada: fechaSegundaVisita, 
+          estado: 'Programada',
+          observaciones: 'Reprogramación por primera visita observada'
+        });
+
         setMensajeExito(`Expediente observado. Se programó 2da visita y se notificó al negocio (Fecha: ${fechaSegundaVisita}).`);
       } else {
-        setMensajeExito(`Expediente actualizado a [${nuevoEstado}] con éxito.`);
+        setMensajeExito('Se emitió la Resolución de Aprobación.');
       }
       cargarExpedientes();
     } catch (err) {
@@ -105,34 +69,19 @@ export default function Inspector() {
     }
   };
 
-  if (!isAuthenticated) return null;
-
   return (
-    <div className="min-h-screen bg-slate-100 pb-12">
-      <header className="bg-slate-900 text-white py-4 px-6 flex justify-between items-center shadow-md">
-        <div>
-          <h1 className="text-lg font-bold tracking-wide flex items-center gap-2">
-            <ShieldCheck className="text-blue-400 w-5 h-5" /> MUNICIPALIDAD PROVINCIAL DE TRUJILLO
-          </h1>
-          <p className="text-xs text-slate-400">Bandeja Técnica de Evaluación de Licencias</p>
-        </div>
-        <button onClick={handleLogout} className="flex items-center gap-1 bg-slate-800 hover:bg-red-900 px-3 py-1.5 rounded text-xs font-semibold transition">
-          <LogOut className="w-4 h-4" /> Salir del Portal
-        </button>
-      </header>
-
-      <main className="max-w-6xl mx-auto mt-8 p-4">
+    <div className="bg-slate-100">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <ListFilter className="text-blue-900" /> Inspecciones Programadas para Hoy
           </h2>
-          <button onClick={cargarExpedientes} className="p-2 bg-white rounded-lg shadow hover:bg-gray-50 text-slate-600 transition">
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <Button onClick={cargarExpedientes} isLoading={loading} variant="secondary" className="w-auto px-4 py-2 text-sm">
+            Actualizar Lista
+          </Button>
         </div>
 
-        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-semibold">{error}</div>}
-        {mensajeExito && <div className="bg-green-100 text-green-800 p-3 rounded mb-4 text-sm font-semibold">{mensajeExito}</div>}
+        {error && <Alert type="error" message={error} />}
+        {mensajeExito && <Alert type="success" message={mensajeExito} />}
 
         {expedientes.length === 0 ? (
           <div className="bg-white p-8 rounded-xl shadow text-center text-gray-500 font-medium">
@@ -190,18 +139,20 @@ export default function Inspector() {
                   <div className="flex-shrink-0">
                     {exp.estado === 'Pendiente' ? (
                       <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                        <button 
+                        <Button 
                           onClick={() => actualizarEstadoTramite(exp.id, 'Aprobado')}
-                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow"
+                          variant="success"
+                          className="w-auto px-4 py-2 text-xs h-8 whitespace-nowrap"
                         >
-                          <ClipboardCheck className="w-4 h-4" /> Dar Conformidad
-                        </button>
-                        <button 
+                          Dar Conformidad
+                        </Button>
+                        <Button 
                           onClick={() => actualizarEstadoTramite(exp.id, 'Observado')}
-                          className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow"
+                          variant="danger"
+                          className="w-auto px-4 py-2 text-xs h-8 whitespace-nowrap"
                         >
-                          <AlertTriangle className="w-4 h-4" /> Observar Local
-                        </button>
+                          Observar Local
+                        </Button>
                       </div>
                     ) : exp.estado === 'Observado' ? (
                       <div className="flex flex-col gap-2 w-full md:w-auto border border-orange-200 bg-orange-50 p-2.5 rounded-lg shadow-sm">
@@ -232,7 +183,6 @@ export default function Inspector() {
             })}
           </div>
         )}
-      </main>
     </div>
   );
 }

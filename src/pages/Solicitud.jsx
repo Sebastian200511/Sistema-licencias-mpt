@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
 import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, Calendar, Copy } from 'lucide-react';
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
-
+import { expedientesService } from '../services/expedientesService';
 
 export default function Solicitud() {
 
@@ -285,74 +284,38 @@ export default function Solicitud() {
 
     try {
 
-      let planoPublicUrl = 'No requiere (Renovación)';
-
-
-
-      if (!esRenovacionExpress && fileObject) {
-
-        const fileExt = fileObject.name.split('.').pop();
-
-        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
-
-
-
-        const { error: uploadError } = await supabase.storage.from('planos').upload(fileName, fileObject);
-
-        if (uploadError) throw uploadError;
-
-
-
-        const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
-
-        planoPublicUrl = urlData.publicUrl;
-
-      }
-
-
-
       const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
 
       const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
 
       const estadoInicial = esRenovacionExpress ? 'Aprobado' : 'Pendiente';
 
+      let planoPublicUrl = 'No requiere (Renovación)';
 
+      if (!esRenovacionExpress && fileObject) {
+        planoPublicUrl = await expedientesService.subirPlanoSubsanacion(codigoExpediente, fileObject);
+      }
 
-      const { data: expData, error: insertError } = await supabase
-
-        .from('expedientes')
-
-        .insert([{ codigo: codigoExpediente, empresa_id: empresaId, plano_url: planoPublicUrl, pago_realizado: true, estado: estadoInicial }])
-
-        .select().single();
-
-
-
-      if (insertError) throw insertError;
-
-
+      const expData = await expedientesService.crearExpediente({ 
+        codigo: codigoExpediente, 
+        empresa_id: empresaId, 
+        plano_url: planoPublicUrl, 
+        pago_realizado: true, 
+        estado: estadoInicial 
+      });
 
       let fechaVisitaStr = null;
 
       if (!esRenovacionExpress) {
-
         const fechaVisita = new Date();
-
         fechaVisita.setDate(fechaVisita.getDate() + 4);
-
         fechaVisitaStr = fechaVisita.toISOString().split('T')[0];
 
-
-
-        const { error: inspError } = await supabase.from('inspecciones')
-
-          .insert([{ expediente_id: expData.id, fecha_programada: fechaVisitaStr, estado: 'Programada' }]);
-
-
-
-        if (inspError) throw inspError;
-
+        await expedientesService.crearInspeccion({ 
+          expediente_id: expData.id, 
+          fecha_programada: fechaVisitaStr, 
+          estado: 'Programada' 
+        });
       }
 
 

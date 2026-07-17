@@ -1,10 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Mail, Lock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { authService } from '../services/authService';
+import Button from '../components/Button';
+import InputField from '../components/InputField';
+import Alert from '../components/Alert';
 
 export default function Institucional() {
   const navigate = useNavigate();
+  const { login, logout } = useAuth();
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,22 +19,10 @@ export default function Institucional() {
     setError('');
     setLoading(true);
     try {
-      const { data, error: authError } = await supabase
-        .from('usuarios_internos')
-        .select('*')
-        .eq('email', loginData.email.trim())
-        .eq('password', loginData.password)
-        .single();
+      const data = await authService.loginInterno(loginData.email, loginData.password);
 
-      if (authError || !data) {
-        setError('Credenciales institucionales incorrectas.');
-        setLoading(false);
-        return;
-      }
-
-      // Guardamos la sesión y el rol
-      localStorage.setItem('inst_session', 'true');
-      localStorage.setItem('inst_role', data.rol);
+      // Usar el contexto para iniciar sesión
+      login(data.rol);
 
       // Enrutamiento inteligente basado en el rol (como en un entorno real)
       if (data.rol === 'Inspector') {
@@ -38,10 +31,10 @@ export default function Institucional() {
         navigate('/cajero');
       } else {
         setError('El rol asignado no tiene un portal definido.');
-        localStorage.clear();
+        logout();
       }
     } catch (err) {
-      setError('Error al conectar con el módulo de seguridad.');
+      setError(err.message || 'Error al conectar con el módulo de seguridad.');
     } finally {
       setLoading(false);
     }
@@ -58,35 +51,37 @@ export default function Institucional() {
           <p className="text-slate-500 font-medium mt-1 text-sm">Acceso exclusivo para personal autorizado</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 text-sm font-medium">
-            <span>{error}</span>
-          </div>
-        )}
+        {error && <Alert type="error" message={error} />}
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico</label>
-            <input 
-              type="email" required
-              value={loginData.email} onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-              className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-800 focus:border-slate-800 outline-none transition"
-              placeholder="usuario@mpt.gob.pe"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
-            <input 
-              type="password" required
-              value={loginData.password} onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-              className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-800 focus:border-slate-800 outline-none transition"
-              placeholder="••••••••"
-            />
-          </div>
-          <button disabled={loading} type="submit" className="w-full bg-slate-800 hover:bg-slate-950 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-70 mt-2">
-            {loading ? 'Autenticando...' : 'Iniciar Sesión'}
-          </button>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <InputField
+            label="Correo Electrónico Institucional"
+            id="email"
+            type="email"
+            value={loginData.email}
+            onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+            placeholder="ejemplo@mpt.gob.pe"
+            required
+            icon={Mail}
+          />
+          
+          <InputField
+            label="Contraseña"
+            id="password"
+            type="password"
+            value={loginData.password}
+            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+            placeholder="••••••••"
+            required
+            icon={Lock}
+          />
+
+          <Button type="submit" isLoading={loading} className="mt-6">
+            Ingresar al Sistema
+          </Button>
         </form>
+
       </div>
     </div>
   );

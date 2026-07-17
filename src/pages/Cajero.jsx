@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
-import { UserCircle, Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw } from 'lucide-react';
+import { apiPeruService } from '../services/apiPeruService';
+import { expedientesService } from '../services/expedientesService';
+import Alert from '../components/Alert';
+import Button from '../components/Button';
 
 export default function Cajero() {
-  const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -18,22 +18,6 @@ export default function Cajero() {
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null);
   const [fileObject, setFileObject] = useState(null);
   const [resultadoTramite, setResultadoTramite] = useState(null);
-
-  useEffect(() => {
-    if (localStorage.getItem('inst_session') === 'true' && localStorage.getItem('inst_role') === 'Cajero') {
-      setIsAuthenticated(true);
-    } else {
-      navigate('/institucional');
-    }
-  }, [navigate]);
-
-
-  const handleLogout = () => {
-    localStorage.clear();
-    setIsAuthenticated(false);
-    navigate('/institucional');
-    resetForm();
-  };
 
   const resetForm = () => {
     setRuc('');
@@ -61,53 +45,32 @@ export default function Cajero() {
     setBuscandoSunat(true);
 
     try {
-      const token = "73aae707fbb5c6faea3a40fd8fbb260bb68b273b73e4c2d5b0be476832ee9d1b"; 
-      const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const data = await apiPeruService.consultarRuc(ruc);
+      
+      const calle = data.direccion || '';
+      const distrito = data.distrito || '';
+      const provincia = data.provincia || '';
+      const departamento = data.departamento || '';
+        
+      const ubicacionCompleta = `${calle} ${distrito} ${provincia} ${departamento}`.toUpperCase();
+      if (!ubicacionCompleta.includes('TRUJILLO')) {
+        setError('El domicilio fiscal no pertenece a Trujillo.');
+        setBuscandoSunat(false);
+        return;
+      }
+
+      const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
+
+      setEmpresaValidada({
+        ruc: data.ruc || ruc,
+        razonSocial: data.nombre_o_razon_social || 'Desconocida',
+        domicilioFiscal: direccionMostrar || 'Desconocida'
       });
 
-      if (!response.ok) throw new Error('RUC no encontrado en SUNAT.');
-
-      const resData = await response.json();
-
-      if (resData?.success && resData?.data) {
-        const calle = resData.data.direccion || '';
-        const distrito = resData.data.distrito || '';
-        const provincia = resData.data.provincia || '';
-        const departamento = resData.data.departamento || '';
-        
-        const ubicacionCompleta = `${calle} ${distrito} ${provincia} ${departamento}`.toUpperCase();
-        if (!ubicacionCompleta.includes('TRUJILLO')) {
-          setError('El domicilio fiscal no pertenece a Trujillo.');
-          setBuscandoSunat(false);
-          return;
-        }
-
-        const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
-
-        setEmpresaValidada({
-          ruc: resData.data.ruc || ruc,
-          razonSocial: resData.data.nombre_o_razon_social || 'Desconocida',
-          domicilioFiscal: direccionMostrar || 'Desconocida'
-        });
-
-        const { data: empresaDb } = await supabase
-          .from('empresas')
-          .select(`id, expedientes(codigo, estado)`)
-          .eq('ruc', resData.data.ruc || ruc)
-          .maybeSingle();
-
-        if (empresaDb?.expedientes) {
-          const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
-          if (aprobada) setLicenciaPrevia(aprobada); 
-        }
-
-      } else {
-        setError(resData?.message || 'RUC inválido.');
+      const empresaDb = await expedientesService.obtenerEmpresaPorRuc(data.ruc || ruc);
+      if (empresaDb?.expedientes) {
+        const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
+        if (aprobada) setLicenciaPrevia(aprobada); 
       }
     } catch (err) {
       setError(err.message || 'Error de conexión.');
@@ -135,68 +98,41 @@ export default function Cajero() {
     }
 
     try {
-      // 1. Guardar/Actualizar Empresa
-      const { data: empresaDb, error: errEmpresa } = await supabase
-        .from('empresas')
-        .upsert({ 
-          ruc: empresaValidada.ruc, 
-          razon_social: empresaValidada.razonSocial,
-          domicilio_fiscal: empresaValidada.domicilioFiscal 
-        }, { onConflict: 'ruc' })
-        .select()
-        .single();
+      const empresaDb = await expedientesService.guardarEmpresa({
+        ruc: empresaValidada.ruc,
+        razonSocial: empresaValidada.razonSocial,
+        domicilioFiscal: empresaValidada.domicilioFiscal
+      });
 
-      if (errEmpresa) throw errEmpresa;
-
-      // 2. Subir Plano si aplica
-      let planoPublicUrl = 'No requiere (Renovación)';
-      if (!esRenovacionExpress && fileObject) {
-        const fileExt = fileObject.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage.from('planos').upload(fileName, fileObject);
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
-        planoPublicUrl = urlData.publicUrl;
-      }
-
-      // 3. Crear Expediente (Ya pagado)
       const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
       const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
-      const estadoInicial = esRenovacionExpress ? 'Aprobado' : 'Pendiente';
 
-      const { data: expData, error: insertError } = await supabase
-        .from('expedientes')
-        .insert([{ 
-          codigo: codigoExpediente, 
-          empresa_id: empresaDb.id, 
-          plano_url: planoPublicUrl, 
-          pago_realizado: true, // Cajero confirma pago
-          estado: estadoInicial 
-        }])
-        .select().single();
-
-      if (insertError) throw insertError;
-
-      // 4. Programar Inspección (Para el mismo día o al día siguiente)
-      let fechaVisitaStr = null;
-      if (!esRenovacionExpress) {
-        const fechaVisita = new Date();
-        // Programación inmediata (hoy)
-        fechaVisitaStr = fechaVisita.toISOString().split('T')[0];
-
-        const { error: inspError } = await supabase.from('inspecciones')
-          .insert([{ 
-            expediente_id: expData.id, 
-            fecha_programada: fechaVisitaStr, 
-            estado: 'Programada' 
-          }]);
-
-        if (inspError) throw inspError;
+      let planoPublicUrl = 'No requiere (Renovación)';
+      if (!esRenovacionExpress && fileObject) {
+        planoPublicUrl = await expedientesService.subirPlanoSubsanacion(codigoExpediente, fileObject);
       }
 
-      setResultadoTramite({ codigo: codigoExpediente, esExpress: esRenovacionExpress, fechaVisita: fechaVisitaStr });
+      const resultado = await expedientesService.crearExpediente({
+        codigo: codigoExpediente,
+        empresa_id: empresaDb.id,
+        plano_url: planoPublicUrl,
+        pago_realizado: true,
+        estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente'
+      });
+
+      if (!esRenovacionExpress) {
+        await expedientesService.crearInspeccion({
+          expediente_id: resultado.id,
+          fecha_programada: new Date().toISOString().split('T')[0],
+          estado: 'Programada'
+        });
+      }
+
+      setResultadoTramite({ 
+        codigo: resultado.codigo, 
+        esExpress: esRenovacionExpress, 
+        fechaVisita: !esRenovacionExpress ? new Date().toISOString().split('T')[0] : null 
+      });
 
     } catch (err) {
       setError('Error al procesar el trámite en base de datos: ' + err.message);
@@ -206,19 +142,7 @@ export default function Cajero() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
-      <header className="bg-teal-900 text-white py-4 px-6 flex justify-between items-center shadow-md">
-        <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <Building2 className="w-5 h-5" /> Atención Presencial - Licencias
-          </h1>
-        </div>
-        <button onClick={handleLogout} className="flex items-center gap-1 bg-teal-800 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-semibold transition">
-          <LogOut className="w-4 h-4" /> Cerrar Turno
-        </button>
-      </header>
-
-      <main className="max-w-3xl mx-auto mt-8 p-4">
+    <div className="bg-slate-50">
         
         {resultadoTramite ? (
           <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-teal-500">
@@ -241,15 +165,15 @@ export default function Cajero() {
                 </div>
               )}
 
-              <button onClick={resetForm} className="bg-teal-700 text-white font-bold py-2 px-6 rounded hover:bg-teal-800 transition">
-                Atender Siguiente Ciudadano
-              </button>
+              <Button onClick={resetForm} variant="outline" className="mt-6 w-auto px-8 mx-auto">
+              Registrar Siguiente Trámite
+            </Button>
           </div>
         ) : (
           <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 border-b pb-2">Registro de Solicitud</h2>
             
-            {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-semibold">{error}</div>}
+            {error && <Alert type="error" message={error} />}
 
             <form onSubmit={handleConsultarRUC} className="mb-6 flex gap-3">
               <input 
@@ -307,19 +231,19 @@ export default function Cajero() {
                   <button onClick={resetForm} type="button" className="px-4 py-3 border border-slate-300 text-slate-600 rounded-lg font-bold hover:bg-slate-100">
                     Cancelar
                   </button>
-                  <button 
-                    onClick={procesarTramiteCaja}
-                    disabled={loading || (!esRenovacionExpress && !fileObject)}
-                    className="flex-1 bg-teal-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {loading ? 'Procesando...' : 'Confirmar Pago y Generar Expediente'} <CheckCircle className="w-5 h-5" />
-                  </button>
+                  <Button 
+                  onClick={registrarTramitePresencial} 
+                  isLoading={loading}
+                  disabled={(!esRenovacionExpress && !fileObject) || !empresaValidada.ruc}
+                  variant="primary"
+                >
+                  <CheckCircle className="w-5 h-5" /> Completar Pago y Trámite
+                </Button>
                 </div>
               </div>
             )}
           </div>
         )}
-      </main>
     </div>
   );
 }
