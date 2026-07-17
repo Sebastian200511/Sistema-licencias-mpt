@@ -2,8 +2,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Solicitud from './pages/Solicitud';
 import Seguimiento from './pages/Seguimiento';
-import Inspector from './pages/Inspector'; // <- Nueva importación
-import Cajero from './pages/Cajero'; // <- Nueva importación Cajero
+import Inspector from './pages/Inspector';
+import Cajero from './pages/Cajero';
+import Institucional from './pages/Institucional'; // <- Nuevo login institucional
 
 function App() {
   return (
@@ -12,8 +13,9 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/solicitud" element={<Solicitud />} />
         <Route path="/seguimiento" element={<Seguimiento />} />
-        <Route path="/inspector" element={<Inspector />} /> {/* <- Nueva ruta */}
-        <Route path="/cajero" element={<Cajero />} /> {/* <- Nueva ruta Cajero */}
+        <Route path="/institucional" element={<Institucional />} /> {/* <- Nueva ruta Login */}
+        <Route path="/inspector" element={<Inspector />} />
+        <Route path="/cajero" element={<Cajero />} />
       </Routes>
     </Router>
   );

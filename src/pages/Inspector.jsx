@@ -1,39 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { ShieldCheck, ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, LogOut, ExternalLink } from 'lucide-react';
 
 export default function Inspector() {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [expedientes, setExpedientes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    
-    try {
-      const { data, error: authError } = await supabase
-        .from('usuarios_internos')
-        .select('*')
-        .eq('email', loginData.email.trim())
-        .eq('password', loginData.password)
-        .single();
-
-      if (authError || !data) {
-        setError('Credenciales institucionales incorrectas.');
-        return;
-      }
-
-      setIsAuthenticated(true);
-      localStorage.setItem('inspector_session', 'true');
-      cargarExpedientes();
-    } catch (err) {
-      setError('Error al conectar con el módulo de seguridad.');
-    }
-  };
 
   const cargarExpedientes = async () => {
     setLoading(true);
@@ -59,15 +36,18 @@ export default function Inspector() {
   };
 
   useEffect(() => {
-    if (localStorage.getItem('inspector_session') === 'true') {
+    if (localStorage.getItem('inst_session') === 'true' && localStorage.getItem('inst_role') === 'Inspector') {
       setIsAuthenticated(true);
       cargarExpedientes();
+    } else {
+      navigate('/institucional');
     }
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('inspector_session');
+    localStorage.clear();
     setIsAuthenticated(false);
+    navigate('/institucional');
   };
 
   const actualizarEstadoTramite = async (expedienteId, nuevoEstado) => {
@@ -125,47 +105,7 @@ export default function Inspector() {
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-4 border-blue-800">
-          <div className="flex flex-col items-center mb-6">
-            <div className="bg-blue-900 p-3 rounded-full mb-2 shadow-md">
-              <ShieldCheck className="text-white w-8 h-8" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">Portal Interno MPT</h2>
-            <p className="text-xs text-gray-500 mt-1">Cuerpo de Inspectores Municipales - Trujillo</p>
-          </div>
-
-          {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-medium">{error}</div>}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Correo Institucional</label>
-              <input 
-                type="email" required
-                value={loginData.email} onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-800 focus:border-blue-800"
-                placeholder="usuario@municipalidad.gob.pe"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Contraseña de Seguridad</label>
-              <input 
-                type="password" required
-                value={loginData.password} onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-800 focus:border-blue-800"
-                placeholder="••••••••"
-              />
-            </div>
-            <button type="submit" className="w-full bg-blue-900 hover:bg-blue-950 text-white font-bold py-2 px-4 rounded transition shadow">
-              Autenticar Inspector
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen bg-slate-100 pb-12">

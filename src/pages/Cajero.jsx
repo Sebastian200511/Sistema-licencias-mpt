@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { UserCircle, Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, LogOut } from 'lucide-react';
 
 export default function Cajero() {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -19,43 +20,18 @@ export default function Cajero() {
   const [resultadoTramite, setResultadoTramite] = useState(null);
 
   useEffect(() => {
-    if (localStorage.getItem('cajero_session') === 'true') {
+    if (localStorage.getItem('inst_session') === 'true' && localStorage.getItem('inst_role') === 'Cajero') {
       setIsAuthenticated(true);
+    } else {
+      navigate('/institucional');
     }
-  }, []);
+  }, [navigate]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      // Intentamos validar que sea un cajero
-      const { data, error: authError } = await supabase
-        .from('usuarios_internos')
-        .select('*')
-        .eq('email', loginData.email.trim())
-        .eq('password', loginData.password)
-        .eq('rol', 'Cajero') // Validamos el rol
-        .single();
-
-      if (authError || !data) {
-        setError('Credenciales incorrectas o no tiene rol de Cajero.');
-        setLoading(false);
-        return;
-      }
-
-      setIsAuthenticated(true);
-      localStorage.setItem('cajero_session', 'true');
-    } catch (err) {
-      setError('Error al conectar con la base de datos.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
-    localStorage.removeItem('cajero_session');
+    localStorage.clear();
     setIsAuthenticated(false);
+    navigate('/institucional');
     resetForm();
   };
 
@@ -228,46 +204,6 @@ export default function Cajero() {
       setLoading(false);
     }
   };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-teal-900 p-4">
-        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-4 border-teal-500">
-          <div className="flex flex-col items-center mb-6">
-            <div className="bg-teal-100 p-3 rounded-full mb-2 shadow-sm border border-teal-200">
-              <UserCircle className="text-teal-700 w-8 h-8" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">Caja y Mesa de Partes</h2>
-            <p className="text-xs text-gray-500 mt-1">Trámite Presencial MPT</p>
-          </div>
-
-          {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm font-medium">{error}</div>}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Correo Cajero</label>
-              <input 
-                type="email" required
-                value={loginData.email} onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-teal-600 focus:border-teal-600 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Contraseña</label>
-              <input 
-                type="password" required
-                value={loginData.password} onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-teal-600 focus:border-teal-600 outline-none"
-              />
-            </div>
-            <button disabled={loading} type="submit" className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold py-2 px-4 rounded transition shadow">
-              {loading ? 'Validando...' : 'Iniciar Turno'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
