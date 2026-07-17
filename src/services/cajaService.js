@@ -3,13 +3,13 @@ import { supabase } from '../supabaseClient';
 export const cajaService = {
   obtenerCajaAbierta: async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) throw new Error('Usuario no autenticado.');
+      const cajeroId = localStorage.getItem('inst_id');
+      if (!cajeroId) throw new Error('Usuario no autenticado.');
 
       const { data, error } = await supabase
         .from('caja_sesiones')
         .select('*')
-        .eq('cajero_id', userData.user.id)
+        .eq('cajero_id', cajeroId)
         .eq('estado', 'Abierta')
         .maybeSingle();
 
@@ -23,13 +23,13 @@ export const cajaService = {
 
   abrirCaja: async (montoInicial) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) throw new Error('Usuario no autenticado.');
+      const cajeroId = localStorage.getItem('inst_id');
+      if (!cajeroId) throw new Error('Usuario no autenticado.');
 
       const { data, error } = await supabase
         .from('caja_sesiones')
         .insert([{
-          cajero_id: userData.user.id,
+          cajero_id: cajeroId,
           monto_inicial: parseFloat(montoInicial),
           estado: 'Abierta'
         }])

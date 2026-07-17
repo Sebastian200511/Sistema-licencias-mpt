@@ -22,7 +22,7 @@ export default function Institucional() {
       const data = await authService.loginInterno(loginData.email, loginData.password);
 
       // Usar el contexto para iniciar sesión
-      login(data.rol);
+      login(data.rol, data.id);
 
       // Enrutamiento inteligente basado en el rol (como en un entorno real)
       const rolNormalizado = data.rol?.toLowerCase();
