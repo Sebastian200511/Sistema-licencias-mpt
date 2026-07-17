@@ -15,6 +15,9 @@ export default function Seguimiento() {
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
   const [codigoRecuperado, setCodigoRecuperado] = useState(null);
   const [loadingRecuperacion, setLoadingRecuperacion] = useState(false);
+  const [subsanacionFile, setSubsanacionFile] = useState(null);
+  const [subsanacionLoading, setSubsanacionLoading] = useState(false);
+  const [subsanacionExito, setSubsanacionExito] = useState(false);
 
   const handleBuscar = async (e) => {
     e.preventDefault();
@@ -99,11 +102,45 @@ export default function Seguimiento() {
     }
   };
 
+  const handleSubsanar = async () => {
+    if(!subsanacionFile) return;
+    setSubsanacionLoading(true);
+    setError('');
+    try {
+        const fileExt = subsanacionFile.name.split('.').pop();
+        const fileName = `subsanacion-${tramite.codigo}-${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('planos').upload(fileName, subsanacionFile);
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
+        
+        const { error: updateError } = await supabase.from('expedientes')
+          .update({ plano_url: urlData.publicUrl })
+          .eq('id', tramite.id);
+          
+        if (updateError) throw updateError;
+        
+        setSubsanacionExito(true);
+        setTramite({...tramite, plano_url: urlData.publicUrl});
+    } catch (err) {
+        setError('Error al subir documento de subsanación: ' + err.message);
+    } finally {
+        setSubsanacionLoading(false);
+    }
+  };
+
   const generarLicenciaPDF = () => {
     const doc = new jsPDF();
-    const fechaEmision = new Date();
-    const fechaVencimiento = new Date();
+    const fechaEmision = new Date(tramite.fecha_creacion || new Date());
+    const fechaVencimiento = new Date(fechaEmision);
     fechaVencimiento.setFullYear(fechaEmision.getFullYear() + 1);
+    
+    const estaVencida = new Date() > fechaVencimiento;
+    if (estaVencida) {
+      doc.setTextColor(200, 200, 200);
+      doc.setFontSize(80);
+      doc.text("VENCIDA", 50, 150, { angle: 45 });
+    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
@@ -269,6 +306,31 @@ export default function Seguimiento() {
                       El inspector realizará una segunda visita el: <strong>{ultimaInspeccion.fecha_segunda_visita}</strong>
                     </p>
                   </div>
+                  
+                  {/* Formulario de subsanación */}
+                  <div className="mt-4 pt-4 border-t border-orange-200">
+                    <p className="text-sm font-bold text-orange-900 mb-2">Subsanar Observación (Adjuntar Nuevo Plano):</p>
+                    {subsanacionExito ? (
+                      <div className="bg-green-100 text-green-800 p-3 rounded text-sm font-semibold flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4"/> Documento actualizado correctamente para la segunda visita.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <input 
+                          type="file" accept=".pdf" 
+                          onChange={(e) => setSubsanacionFile(e.target.files[0])}
+                          className="flex-1 text-sm bg-white border border-orange-300 rounded p-2"
+                        />
+                        <button 
+                          onClick={handleSubsanar}
+                          disabled={!subsanacionFile || subsanacionLoading}
+                          className="bg-orange-600 text-white font-bold py-2 px-4 rounded hover:bg-orange-700 disabled:opacity-50 text-sm"
+                        >
+                          {subsanacionLoading ? 'Subiendo...' : 'Enviar Corrección'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -284,12 +346,19 @@ export default function Seguimiento() {
               )}
               
               {tramite.estado === 'Aprobado' && (
-                <button 
-                  onClick={generarLicenciaPDF}
-                  className="mt-6 flex items-center gap-2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-lg"
-                >
-                  <Download className="w-5 h-5" /> Descargar Licencia Oficial (PDF)
-                </button>
+                <div className="mt-6 w-full flex flex-col items-center">
+                  {new Date() > new Date(new Date(tramite.fecha_creacion || new Date()).setFullYear(new Date(tramite.fecha_creacion || new Date()).getFullYear() + 1)) && (
+                    <div className="w-full bg-red-100 text-red-800 p-4 rounded-lg mb-4 text-sm font-bold border border-red-200 text-center">
+                      ⚠️ Esta licencia ha expirado. Su PDF se generará con marca de agua "VENCIDA". Le invitamos a realizar su trámite de renovación.
+                    </div>
+                  )}
+                  <button 
+                    onClick={generarLicenciaPDF}
+                    className="flex items-center gap-2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-lg"
+                  >
+                    <Download className="w-5 h-5" /> Descargar Licencia Oficial (PDF)
+                  </button>
+                </div>
               )}
             </div>
           </div>

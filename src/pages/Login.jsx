@@ -294,12 +294,18 @@ export default function Login() {
         )}
       </div>
 
-      <div className="mt-8 text-center animate-fade-in">
+      <div className="mt-8 text-center animate-fade-in flex flex-col sm:flex-row items-center justify-center gap-4">
         <Link 
           to="/inspector"
           className="inline-block text-slate-400 hover:text-blue-900 text-sm font-semibold transition-colors border-b border-transparent hover:border-blue-900 pb-0.5"
         >
-          <span>Acceso Institucional</span>
+          <span>Acceso Institucional (Inspectores)</span>
+        </Link>
+        <Link 
+          to="/cajero"
+          className="inline-block text-slate-400 hover:text-teal-700 text-sm font-semibold transition-colors border-b border-transparent hover:border-teal-700 pb-0.5"
+        >
+          <span>Acceso Institucional (Cajeros)</span>
         </Link>
       </div>
     </div>

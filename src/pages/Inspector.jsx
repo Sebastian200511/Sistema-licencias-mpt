@@ -38,13 +38,15 @@ export default function Inspector() {
   const cargarExpedientes = async () => {
     setLoading(true);
     try {
+      const hoyStr = new Date().toISOString().split('T')[0];
       const { data, error: fetchError } = await supabase
         .from('expedientes')
         .select(`
           *, 
           empresas(ruc, razon_social, domicilio_fiscal),
-          inspecciones(fecha_programada, estado)
+          inspecciones!inner(fecha_programada, estado)
         `)
+        .eq('inspecciones.fecha_programada', hoyStr)
         .order('fecha_creacion', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -111,7 +113,11 @@ export default function Inspector() {
 
       if (inspError) throw inspError;
 
-      setMensajeExito(`Expediente actualizado a [${nuevoEstado}] con éxito.`);
+      if (nuevoEstado === 'Observado') {
+        setMensajeExito(`Expediente observado. Se programó 2da visita y se notificó al negocio (Fecha: ${fechaSegundaVisita}).`);
+      } else {
+        setMensajeExito(`Expediente actualizado a [${nuevoEstado}] con éxito.`);
+      }
       cargarExpedientes();
     } catch (err) {
       setError('No se pudo procesar el cambio de estado técnico.');
@@ -178,7 +184,7 @@ export default function Inspector() {
       <main className="max-w-6xl mx-auto mt-8 p-4">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <ListFilter className="text-blue-900" /> Trámites Asignados para Inspección Física
+            <ListFilter className="text-blue-900" /> Inspecciones Programadas para Hoy
           </h2>
           <button onClick={cargarExpedientes} className="p-2 bg-white rounded-lg shadow hover:bg-gray-50 text-slate-600 transition">
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
