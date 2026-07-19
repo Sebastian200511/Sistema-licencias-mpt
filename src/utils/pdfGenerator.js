@@ -5,8 +5,9 @@ export const pdfGenerator = {
     const doc = new jsPDF();
     const empresa = tramite.empresas || {};
     const fechaEmision = new Date(tramite.fecha_creacion || new Date());
-    const fechaVencimiento = new Date(fechaEmision);
-    fechaVencimiento.setFullYear(fechaEmision.getFullYear() + 1);
+    const fechaVencimiento = tramite.fecha_vencimiento 
+      ? new Date(`${tramite.fecha_vencimiento}T23:59:59`) 
+      : (() => { const d = new Date(fechaEmision); d.setFullYear(d.getFullYear() + 1); return d; })();
     
     const estaVencida = new Date() > fechaVencimiento;
 

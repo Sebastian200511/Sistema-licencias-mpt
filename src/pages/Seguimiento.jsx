@@ -115,10 +115,17 @@ export default function Seguimiento() {
   };
 
   const getStatusUI = (estado) => {
+    const estaVencida = tramite?.fecha_vencimiento && new Date() > new Date(`${tramite.fecha_vencimiento}T23:59:59`);
+    
     switch(estado) {
       case 'Pendiente': return { color: 'text-yellow-600', bg: 'bg-yellow-100', icon: <Clock className="w-10 h-10"/>, texto: 'En Evaluación Técnica' };
-      case 'Aprobado': return { color: 'text-green-600', bg: 'bg-green-100', icon: <CheckCircle className="w-10 h-10"/>, texto: 'Trámite Aprobado' };
+      case 'Aprobado': 
+        if (estaVencida) {
+          return { color: 'text-red-600', bg: 'bg-red-100', icon: <AlertCircle className="w-10 h-10"/>, texto: 'Licencia Caducada' };
+        }
+        return { color: 'text-green-600', bg: 'bg-green-100', icon: <CheckCircle className="w-10 h-10"/>, texto: 'Trámite Aprobado' };
       case 'Observado': return { color: 'text-orange-600', bg: 'bg-orange-100', icon: <AlertCircle className="w-10 h-10"/>, texto: 'Local Observado (Plazo 30 días)' };
+      case 'Denegado Definitivo': return { color: 'text-red-800', bg: 'bg-red-200', icon: <XCircle className="w-10 h-10"/>, texto: 'Licencia Denegada Definitivamente' };
       case 'Denegado': return { color: 'text-red-600', bg: 'bg-red-100', icon: <XCircle className="w-10 h-10"/>, texto: 'Licencia Denegada' };
       default: return { color: 'text-gray-600', bg: 'bg-gray-100', icon: <FileText className="w-10 h-10"/>, texto: estado };
     }
@@ -278,7 +285,7 @@ export default function Seguimiento() {
               
               {tramite.estado === 'Aprobado' && (
                 <div className="mt-6 w-full flex flex-col items-center">
-                  {new Date() > new Date(new Date(tramite.fecha_creacion || new Date()).setFullYear(new Date(tramite.fecha_creacion || new Date()).getFullYear() + 1)) && (
+                  {(tramite.fecha_vencimiento && new Date() > new Date(`${tramite.fecha_vencimiento}T23:59:59`)) && (
                     <div className="w-full bg-red-100 text-red-800 p-4 rounded-lg mb-4 text-sm font-bold border border-red-200 text-center">
                       ⚠️ Esta licencia ha expirado. Su PDF se generará con marca de agua "VENCIDA". Le invitamos a realizar su trámite de renovación.
                     </div>

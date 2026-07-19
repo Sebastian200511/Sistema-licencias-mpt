@@ -68,6 +68,12 @@ export const expedientesService = {
   },
 
   crearExpediente: async (expedienteData) => {
+    if (expedienteData.estado === 'Aprobado' && !expedienteData.fecha_vencimiento) {
+      const fechaVencimiento = new Date();
+      fechaVencimiento.setFullYear(fechaVencimiento.getFullYear() + 1);
+      expedienteData.fecha_vencimiento = fechaVencimiento.toISOString().split('T')[0];
+    }
+
     const { data, error } = await supabase
       .from('expedientes')
       .insert([expedienteData])
@@ -75,6 +81,14 @@ export const expedientesService = {
       .single();
 
     if (error) throw new Error('Error al generar el expediente.');
+    return data;
+  },
+
+  asignarCupoInteligente: async (expedienteId) => {
+    const { data, error } = await supabase.rpc('asignar_cupo_inspeccion', {
+      p_expediente_id: expedienteId
+    });
+    if (error) throw new Error('Error al asignar cupo en la agenda: ' + error.message);
     return data;
   },
 
@@ -103,9 +117,17 @@ export const expedientesService = {
   },
 
   actualizarEstadoExpediente: async (expedienteId, nuevoEstado) => {
+    let updateData = { estado: nuevoEstado };
+    
+    if (nuevoEstado === 'Aprobado') {
+      const fechaVencimiento = new Date();
+      fechaVencimiento.setFullYear(fechaVencimiento.getFullYear() + 1);
+      updateData.fecha_vencimiento = fechaVencimiento.toISOString().split('T')[0];
+    }
+
     const { error } = await supabase
       .from('expedientes')
-      .update({ estado: nuevoEstado })
+      .update(updateData)
       .eq('id', expedienteId);
 
     if (error) throw new Error('Error al cambiar el estado del expediente.');

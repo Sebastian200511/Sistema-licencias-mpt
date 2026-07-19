@@ -172,21 +172,20 @@ export default function Cajero() {
         plano_url: planoPublicUrl,
         pago_realizado: true,
         monto_pagado: TARIFA,
-        estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente'
+        estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente',
+        modalidad_ingreso: 'Presencial',
+        cajero_id: sesionCaja?.cajero_id
       });
 
+      let fechaVisitaAsignada = null;
       if (!esRenovacionExpress) {
-        await expedientesService.crearInspeccion({
-          expediente_id: resultado.id,
-          fecha_programada: new Date().toISOString().split('T')[0],
-          estado: 'Programada'
-        });
+        fechaVisitaAsignada = await expedientesService.asignarCupoInteligente(resultado.id);
       }
 
       setResultadoTramite({ 
         codigo: resultado.codigo, 
         esExpress: esRenovacionExpress, 
-        fechaVisita: !esRenovacionExpress ? new Date().toISOString().split('T')[0] : null 
+        fechaVisita: fechaVisitaAsignada 
       });
 
     } catch (err) {

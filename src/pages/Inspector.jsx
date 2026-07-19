@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, ExternalLink } from 'lucide-react';
 import { expedientesService } from '../services/expedientesService';
+import { supabase } from '../supabaseClient';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
 
@@ -25,6 +26,22 @@ export default function Inspector() {
 
   useEffect(() => {
     cargarExpedientes();
+
+    // Configuración de Supabase Realtime para la "Reactividad en Vivo"
+    const channel = supabase
+      .channel('expedientes-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expedientes' },
+        (payload) => {
+          cargarExpedientes(); // Actualiza automáticamente la bandeja sin F5
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const actualizarEstadoTramite = async (expedienteId, nuevoEstado) => {
@@ -47,8 +64,9 @@ export default function Inspector() {
       await expedientesService.actualizarEstadoExpediente(expedienteId, nuevoEstado);
 
       if (nuevoEstado === 'Observado') {
+        // Algoritmo de Subsanación (+42 días calendario = ~30 días hábiles)
         const fechaFutura = new Date();
-        fechaFutura.setDate(fechaFutura.getDate() + 30);
+        fechaFutura.setDate(fechaFutura.getDate() + 42);
         const fechaSegundaVisita = fechaFutura.toISOString().split('T')[0];
         
         await expedientesService.crearInspeccion({
@@ -165,7 +183,7 @@ export default function Inspector() {
                             <ClipboardCheck className="w-4 h-4" /> Subsanado
                           </button>
                           <button 
-                            onClick={() => actualizarEstadoTramite(exp.id, 'Denegado')}
+                            onClick={() => actualizarEstadoTramite(exp.id, 'Denegado Definitivo')}
                             className="flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded text-xs transition shadow flex-1"
                           >
                             <FileX className="w-4 h-4" /> Denegar

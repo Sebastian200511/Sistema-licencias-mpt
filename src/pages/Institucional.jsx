@@ -30,6 +30,8 @@ export default function Institucional() {
         navigate('/inspector');
       } else if (rolNormalizado === 'cajero') {
         navigate('/cajero');
+      } else if (rolNormalizado === 'admin') {
+        navigate('/admin');
       } else {
         setError('El rol asignado no tiene un portal definido.');
         logout();

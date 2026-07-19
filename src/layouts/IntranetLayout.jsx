@@ -12,13 +12,17 @@ export default function IntranetLayout() {
           <h1 className="text-lg font-bold tracking-wide flex items-center gap-2">
             {userRole === 'Inspector' ? (
               <ShieldCheck className="text-blue-400 w-5 h-5" />
+            ) : userRole === 'Admin' ? (
+              <UserCircle className="text-purple-400 w-5 h-5" />
             ) : (
               <UserCircle className="text-teal-400 w-5 h-5" />
             )}
             MUNICIPALIDAD PROVINCIAL DE TRUJILLO
           </h1>
           <p className="text-xs text-slate-400">
-            {userRole === 'Inspector' ? 'Bandeja Técnica de Evaluación de Licencias' : 'Terminal de Caja y Mesa de Partes'}
+            {userRole === 'Inspector' ? 'Bandeja Técnica de Evaluación de Licencias' : 
+             userRole === 'Admin' ? 'Panel de Administración (TI)' : 
+             'Terminal de Caja y Mesa de Partes'}
           </p>
         </div>
         

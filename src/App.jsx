@@ -9,6 +9,7 @@ import Solicitud from './pages/Solicitud';
 import Seguimiento from './pages/Seguimiento';
 import Inspector from './pages/Inspector';
 import Cajero from './pages/Cajero';
+import Admin from './pages/Admin';
 import Institucional from './pages/Institucional';
 
 function App() {
@@ -31,6 +32,9 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute allowedRoles={['Cajero']} />}>
               <Route path="/cajero" element={<Cajero />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+              <Route path="/admin" element={<Admin />} />
             </Route>
           </Route>
         </Routes>
