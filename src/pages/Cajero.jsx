@@ -364,6 +364,7 @@ export default function Cajero() {
              </div>
              
              {resultadoTramite.esExpress ? (
+                <div className="bg-green-50 text-green-800 p-4 rounded-lg mb-6 border border-green-200">
                   <p className="font-bold">Renovación Automática Aprobada</p>
                   <p className="text-sm">Indique al ciudadano que puede descargar su licencia renovada en el portal virtual usando su código.</p>
                 </div>
