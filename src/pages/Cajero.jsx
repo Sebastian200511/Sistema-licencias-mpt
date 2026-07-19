@@ -4,7 +4,6 @@ import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
 import { cajaService } from '../services/cajaService';
 import { pdfGenerator } from '../utils/pdfGenerator';
-import { cajaService } from '../services/cajaService';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
 
