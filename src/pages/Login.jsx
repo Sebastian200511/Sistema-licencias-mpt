@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
-
+import { supabase } from '../supabaseClient';
 
 export default function Login() {
   const navigate = useNavigate();
