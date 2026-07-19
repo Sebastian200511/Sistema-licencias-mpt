@@ -141,6 +141,7 @@ export default function Admin() {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="p-3 text-sm font-bold text-slate-600">Nombre</th>
+                    <th className="p-3 text-sm font-bold text-slate-600">Correo Electrónico</th>
                     <th className="p-3 text-sm font-bold text-slate-600">Rol</th>
                     <th className="p-3 text-sm font-bold text-slate-600">Estado</th>
                     <th className="p-3 text-sm font-bold text-slate-600 text-center">Acciones</th>
@@ -150,6 +151,7 @@ export default function Admin() {
                   {usuarios.map(u => (
                     <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                       <td className="p-3 text-sm font-medium text-slate-800">{u.nombre_completo}</td>
+                      <td className="p-3 text-sm text-slate-500">{u.email || '-'}</td>
                       <td className="p-3 text-sm text-slate-600">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${u.rol === 'Admin' ? 'bg-purple-100 text-purple-700' : u.rol === 'Inspector' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                           {u.rol}
