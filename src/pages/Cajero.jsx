@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, Lock, DollarSign, LogOut } from 'lucide-react';
+import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, Lock, DollarSign, LogOut, Printer, Smartphone, Banknote, History } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
+import { cajaService } from '../services/cajaService';
+import { pdfGenerator } from '../utils/pdfGenerator';
 import { cajaService } from '../services/cajaService';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
@@ -28,6 +30,9 @@ export default function Cajero() {
   const [modalCierre, setModalCierre] = useState(false);
   const [montoFisicoCierre, setMontoFisicoCierre] = useState('');
   const [cajaCerradaResult, setCajaCerradaResult] = useState(null);
+  const [metodoPago, setMetodoPago] = useState('Efectivo');
+  const [historial, setHistorial] = useState([]);
+  const [resumenCierre, setResumenCierre] = useState(null);
   const TARIFA = 3.00;
 
   useEffect(() => {
@@ -38,8 +43,20 @@ export default function Cajero() {
     try {
       const caja = await cajaService.obtenerCajaAbierta();
       setSesionCaja(caja);
+      if (caja) {
+        cargarHistorialTurno(caja);
+      }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const cargarHistorialTurno = async (cajaActual) => {
+    try {
+      const data = await cajaService.obtenerHistorialTurno(cajaActual.cajero_id, cajaActual.fecha_apertura);
+      setHistorial(data);
+    } catch (err) {
+      console.error('Error al cargar historial', err);
     }
   };
 
@@ -57,14 +74,32 @@ export default function Cajero() {
     }
   };
 
+  const prepararCierre = async () => {
+    setLoading(true);
+    try {
+      const calculo = await cajaService.calcularMontoTotalTurno(sesionCaja.cajero_id, sesionCaja.fecha_apertura);
+      setResumenCierre(calculo);
+      setModalCierre(true);
+    } catch (err) {
+      setError('Error al preparar cierre: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cerrarCaja = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const totalEsperado = sesionCaja.monto_inicial + 0; // Se ajustaría con BD si es necesario
-      const caja = await cajaService.cerrarCaja(sesionCaja.id, totalEsperado, montoFisicoCierre);
+      const totalEsperadoFisico = sesionCaja.monto_inicial + resumenCierre.totalEfectivo;
+      const caja = await cajaService.cerrarCaja(sesionCaja.id, totalEsperadoFisico, montoFisicoCierre);
       setSesionCaja(null);
-      setCajaCerradaResult(caja);
+      setCajaCerradaResult({
+        ...caja,
+        totalRecaudado: resumenCierre.totalRecaudado,
+        totalYape: resumenCierre.totalYape,
+        totalEfectivo: resumenCierre.totalEfectivo
+      });
       setModalCierre(false);
     } catch (err) {
       setError('Error al cerrar caja: ' + err.message);
@@ -81,6 +116,8 @@ export default function Cajero() {
     setPlanoSeleccionado(null);
     setFileObject(null);
     setResultadoTramite(null);
+    setMetodoPago('Efectivo');
+    setEfectivoRecibido('');
     setError('');
   };
 
@@ -174,7 +211,8 @@ export default function Cajero() {
         monto_pagado: TARIFA,
         estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente',
         modalidad_ingreso: 'Presencial',
-        cajero_id: sesionCaja?.cajero_id
+        cajero_id: sesionCaja?.cajero_id,
+        metodo_pago: metodoPago
       });
 
       let fechaVisitaAsignada = null;
@@ -187,6 +225,8 @@ export default function Cajero() {
         esExpress: esRenovacionExpress, 
         fechaVisita: fechaVisitaAsignada 
       });
+
+      cargarHistorialTurno(sesionCaja);
 
     } catch (err) {
       setError('Error al procesar el trámite en base de datos: ' + err.message);
@@ -201,7 +241,13 @@ export default function Cajero() {
         <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-slate-800 mb-6">
           <LogOut className="mx-auto w-16 h-16 text-slate-800 mb-4" />
           <h2 className="text-2xl font-bold">Turno Cerrado Correctamente</h2>
-          <p className="mt-2 text-slate-600">Sistema: S/ {cajaCerradaResult.monto_calculado} | Físico: S/ {cajaCerradaResult.monto_fisico}</p>
+          <div className="mt-4 grid grid-cols-2 gap-4 max-w-sm mx-auto text-sm">
+            <div className="bg-slate-100 p-3 rounded text-slate-700 border border-slate-200">Total Yape: <br/><b>S/ {cajaCerradaResult.totalYape?.toFixed(2) || '0.00'}</b></div>
+            <div className="bg-green-100 p-3 rounded text-green-800 border border-green-300">
+               Efectivo Esperado: <br/><b className="text-lg">S/ {cajaCerradaResult.monto_calculado?.toFixed(2) || '0.00'}</b>
+            </div>
+          </div>
+          <p className="mt-4 font-bold text-slate-800">Usted entregó (Físico): S/ {Number(cajaCerradaResult.monto_fisico).toFixed(2)}</p>
           <Button onClick={() => setCajaCerradaResult(null)} variant="outline" className="mt-4">Nueva Sesión</Button>
         </div>
       )}
@@ -233,7 +279,7 @@ export default function Cajero() {
               </p>
               <p className="text-xs text-slate-500">Monto Inicial: S/ {sesionCaja.monto_inicial.toFixed(2)}</p>
             </div>
-            <Button variant="danger" onClick={() => setModalCierre(true)} className="px-4 py-2 text-sm">
+            <Button variant="danger" onClick={prepararCierre} isLoading={loading} className="px-4 py-2 text-sm">
               Cuadrar y Cerrar
             </Button>
           </div>
@@ -242,9 +288,20 @@ export default function Cajero() {
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
                 <h3 className="text-xl font-bold mb-4">Cierre de Caja</h3>
+                {resumenCierre && (
+                  <div className="bg-slate-100 p-3 rounded-lg mb-4 text-sm space-y-1">
+                    <p className="flex justify-between"><span>Recaudación Total:</span> <b>S/ {resumenCierre.totalRecaudado.toFixed(2)}</b></p>
+                    <p className="flex justify-between text-slate-500"><span>Cobros por Yape:</span> <b>S/ {resumenCierre.totalYape.toFixed(2)}</b></p>
+                    <hr className="my-1 border-slate-300"/>
+                    <p className="flex justify-between text-green-700 font-bold">
+                      <span>Efectivo Esperado:</span> 
+                      <span>S/ {(sesionCaja.monto_inicial + resumenCierre.totalEfectivo).toFixed(2)}</span>
+                    </p>
+                  </div>
+                )}
                 <form onSubmit={cerrarCaja}>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">¿Cuánto dinero físico tiene en la caja?</label>
-                  <input type="number" step="0.01" min="0" required value={montoFisicoCierre} onChange={e => setMontoFisicoCierre(e.target.value)} className="w-full p-3 border rounded-lg text-xl mb-4 font-bold" />
+                  <label className="block text-sm font-bold text-slate-700 mb-2">¿Cuánto dinero físico REAL tiene en la caja?</label>
+                  <input type="number" step="0.01" min="0" required value={montoFisicoCierre} onChange={e => setMontoFisicoCierre(e.target.value)} className="w-full p-3 border rounded-lg text-xl mb-4 font-bold" placeholder="S/" />
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" className="flex-1" onClick={() => setModalCierre(false)}>Cancelar</Button>
                     <Button type="submit" variant="danger" className="flex-1" isLoading={loading}>Confirmar</Button>
@@ -305,11 +362,9 @@ export default function Cajero() {
              <h2 className="text-2xl font-bold text-gray-800">Pago Registrado y Trámite Generado</h2>
              <div className="bg-slate-100 p-4 rounded-lg my-6 border">
                <span className="text-xs text-slate-500 font-bold uppercase">Código de Expediente</span>
-               <p className="text-4xl font-mono font-bold text-teal-900 mt-2">{resultadoTramite.codigo}</p>
              </div>
              
              {resultadoTramite.esExpress ? (
-                <div className="bg-green-50 text-green-800 p-4 rounded-lg mb-6 border border-green-200">
                   <p className="font-bold">Renovación Automática Aprobada</p>
                   <p className="text-sm">Indique al ciudadano que puede descargar su licencia renovada en el portal virtual usando su código.</p>
                 </div>
@@ -320,10 +375,20 @@ export default function Cajero() {
                 </div>
               )}
 
-              <Button onClick={resetForm} variant="outline" className="mt-6 w-auto px-8 mx-auto">
-              Registrar Siguiente Trámite
-            </Button>
+              <div className="flex gap-4 justify-center mt-6">
+                <Button onClick={resetForm} variant="outline" className="w-auto px-8">
+                  Siguiente Trámite
+                </Button>
+                <Button 
+                  onClick={() => pdfGenerator.generarTicketPago(resultadoTramite, empresaValidada, TARIFA, metodoPago)} 
+                  variant="primary" 
+                  className="w-auto px-6 bg-slate-800 hover:bg-slate-900 border-none"
+                >
+                  <Printer className="w-4 h-4 mr-2 inline" /> Imprimir Comprobante
+                </Button>
+              </div>
           </div>
+        ) : (    </div>
         ) : (
           <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 border-b pb-2">Registro de Solicitud</h2>
@@ -374,7 +439,7 @@ export default function Cajero() {
                   </div>
                 )}
 
-                <div className="bg-slate-800 p-4 rounded-lg text-white flex justify-between items-center">
+                <div className="bg-slate-800 p-4 rounded-t-lg text-white flex justify-between items-center">
                    <div>
                      <p className="font-bold">Pago en Caja Municipal</p>
                      <p className="text-xs text-slate-300">Tasa administrativa por Licencia</p>
@@ -382,12 +447,25 @@ export default function Cajero() {
                    <p className="text-2xl font-bold font-mono">S/ {TARIFA.toFixed(2)}</p>
                 </div>
 
+                <div className="bg-slate-100 p-4 rounded-b-lg border border-slate-200 border-t-0 flex gap-4">
+                  <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Efectivo' ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                    <input type="radio" name="pago" value="Efectivo" className="hidden" checked={metodoPago === 'Efectivo'} onChange={(e) => setMetodoPago(e.target.value)} />
+                    <Banknote className="w-6 h-6 mb-1" />
+                    <span className="font-bold text-sm">Efectivo</span>
+                  </label>
+                  <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Yape' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                    <input type="radio" name="pago" value="Yape" className="hidden" checked={metodoPago === 'Yape'} onChange={(e) => setMetodoPago(e.target.value)} />
+                    <Smartphone className="w-6 h-6 mb-1" />
+                    <span className="font-bold text-sm">Yape / Plin</span>
+                  </label>
+                </div>
+
                 <div className="flex gap-3">
                   <button onClick={resetForm} type="button" className="px-4 py-3 border border-slate-300 text-slate-600 rounded-lg font-bold hover:bg-slate-100">
                     Cancelar
                   </button>
                   <Button 
-                  onClick={() => setModalVuelto(true)} 
+                  onClick={() => metodoPago === 'Yape' ? registrarTramitePresencial() : setModalVuelto(true)} 
                   isLoading={loading}
                   disabled={(!esRenovacionExpress && !fileObject) || !empresaValidada.ruc}
                   variant="primary"
@@ -399,6 +477,42 @@ export default function Cajero() {
             )}
           </div>
         )}
+        
+        {/* Historial de Turno */}
+        <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><History className="w-5 h-5 text-slate-500"/> Trámites Cobrados (Turno Actual)</h3>
+          {historial.length === 0 ? (
+            <p className="text-slate-500 text-sm italic text-center py-4">No hay trámites registrados en este turno.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-600 text-xs uppercase font-bold">
+                    <th className="p-3 rounded-tl-lg">Hora</th>
+                    <th className="p-3">Expediente</th>
+                    <th className="p-3">Método</th>
+                    <th className="p-3 rounded-tr-lg text-right">Monto</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm text-slate-700">
+                  {historial.map((exp) => (
+                    <tr key={exp.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="p-3">{new Date(exp.fecha_creacion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="p-3 font-mono font-bold text-teal-700">{exp.codigo}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${exp.metodo_pago === 'Yape' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                          {exp.metodo_pago || 'Efectivo'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right font-bold">S/ {Number(exp.monto_pagado).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         </>
       ) : null}
     </div>

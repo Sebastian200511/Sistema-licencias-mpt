@@ -66,17 +66,47 @@ export const cajaService = {
     }
   },
 
-  calcularMontoTotalTurno: async (sesionId) => {
+  obtenerHistorialTurno: async (cajeroId, fechaApertura) => {
     try {
-      // Para saber los trámites cobrados en esta sesión, podríamos consultar expedientes creados por este cajero
-      // entre la fecha de apertura y ahora. Pero como el sistema no guarda explicitamente quién cobró el expediente
-      // en la tabla expedientes, asumiremos que todos los expedientes creados entre la apertura de caja y el cierre
-      // (por este cajero) cuentan.
-      // O para simplificar como MVP, podemos confiar en el estado del front end o consultar `expedientes`.
-      return 0; 
+      const { data, error } = await supabase
+        .from('expedientes')
+        .select('id, codigo, fecha_creacion, monto_pagado, metodo_pago')
+        .eq('cajero_id', cajeroId)
+        .gte('fecha_creacion', fechaApertura)
+        .order('fecha_creacion', { ascending: false });
+        
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error al obtener historial:', error);
+      return [];
+    }
+  },
+
+  calcularMontoTotalTurno: async (cajeroId, fechaApertura) => {
+    try {
+      const historial = await cajaService.obtenerHistorialTurno(cajeroId, fechaApertura);
+      
+      let totalEfectivo = 0;
+      let totalYape = 0;
+
+      historial.forEach(exp => {
+        const monto = parseFloat(exp.monto_pagado) || 0;
+        if (exp.metodo_pago === 'Yape') {
+          totalYape += monto;
+        } else {
+          totalEfectivo += monto;
+        }
+      });
+
+      return {
+        totalRecaudado: totalEfectivo + totalYape,
+        totalEfectivo,
+        totalYape
+      };
     } catch (error) {
       console.error('Error al calcular monto:', error);
-      return 0;
+      return { totalRecaudado: 0, totalEfectivo: 0, totalYape: 0 };
     }
   }
 };
