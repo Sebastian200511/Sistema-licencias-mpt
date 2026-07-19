@@ -361,6 +361,7 @@ export default function Cajero() {
              <h2 className="text-2xl font-bold text-gray-800">Pago Registrado y Trámite Generado</h2>
              <div className="bg-slate-100 p-4 rounded-lg my-6 border">
                <span className="text-xs text-slate-500 font-bold uppercase">Código de Expediente</span>
+               <p className="text-4xl font-mono font-bold text-teal-900 mt-2">{resultadoTramite.codigo}</p>
              </div>
              
              {resultadoTramite.esExpress ? (
@@ -388,7 +389,6 @@ export default function Cajero() {
                 </Button>
               </div>
           </div>
-        ) : (    </div>
         ) : (
           <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 border-b pb-2">Registro de Solicitud</h2>
