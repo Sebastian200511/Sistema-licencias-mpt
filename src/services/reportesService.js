@@ -15,7 +15,7 @@ export const reportesService = {
       const { data: expedientes, error: errExpedientes } = await supabase
         .from('expedientes')
         .select('cajero_id, monto_pagado, metodo_pago, created_at')
-        .not('cajero_id', 'is', null);
+        .eq('pago_realizado', true);
 
       if (errExpedientes) throw errExpedientes;
 
@@ -38,28 +38,46 @@ export const reportesService = {
         };
       });
 
+      let totalTarjeta = 0;
+
       // Calcular
       expedientes.forEach(exp => {
         const monto = parseFloat(exp.monto_pagado) || 0;
-        const metodo = exp.metodo_pago;
+        const metodo = exp.metodo_pago || 'Efectivo'; // Fallback por si acaso
 
         totalGeneral += monto;
         if (metodo === 'Yape') totalYape += monto;
+        else if (metodo === 'Tarjeta') totalTarjeta += monto;
         else totalEfectivo += monto;
 
         const cId = exp.cajero_id;
-        if (reportePorCajero[cId]) {
+        
+        if (!cId) {
+          // Pago Virtual (Mercado Pago)
+          if (!reportePorCajero['virtual']) {
+            reportePorCajero['virtual'] = {
+              nombre: 'Portal Virtual (Mercado Pago)',
+              total: 0, efectivo: 0, yape: 0, tarjeta: 0, cantidad: 0
+            };
+          }
+          reportePorCajero['virtual'].cantidad += 1;
+          reportePorCajero['virtual'].total += monto;
+          reportePorCajero['virtual'].tarjeta += monto;
+        } else if (reportePorCajero[cId]) {
+          // Pago Físico por Cajero
           reportePorCajero[cId].cantidad += 1;
           reportePorCajero[cId].total += monto;
           if (metodo === 'Yape') reportePorCajero[cId].yape += monto;
+          else if (metodo === 'Tarjeta') reportePorCajero[cId].tarjeta += monto; // Caso raro físico con POS
           else reportePorCajero[cId].efectivo += monto;
         } else {
           // Si por alguna razón hay un cajero_id que ya no está en usuarios_internos (borrado lógico)
           reportePorCajero[cId] = {
             nombre: 'Cajero Desconocido / Eliminado',
             total: monto,
-            efectivo: metodo !== 'Yape' ? monto : 0,
+            efectivo: metodo !== 'Yape' && metodo !== 'Tarjeta' ? monto : 0,
             yape: metodo === 'Yape' ? monto : 0,
+            tarjeta: metodo === 'Tarjeta' ? monto : 0,
             cantidad: 1
           };
         }
@@ -70,6 +88,7 @@ export const reportesService = {
           general: totalGeneral,
           efectivo: totalEfectivo,
           yape: totalYape,
+          tarjeta: totalTarjeta,
           tramites: tramitesAtendidos
         },
         desgloseCajeros: Object.values(reportePorCajero).sort((a, b) => b.total - a.total)

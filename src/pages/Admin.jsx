@@ -227,7 +227,7 @@ export default function Admin() {
             {reporteFinanciero ? (
               <>
                 {/* KPIs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <p className="text-sm font-bold text-slate-500 uppercase">Recaudación Total</p>
                     <p className="text-3xl font-black text-slate-800 mt-2">S/ {reporteFinanciero.totales.general.toFixed(2)}</p>
@@ -239,6 +239,10 @@ export default function Admin() {
                   <div className="bg-purple-50 p-6 rounded-xl shadow-sm border border-purple-200">
                     <p className="text-sm font-bold text-purple-700 uppercase">Total Yape/Plin</p>
                     <p className="text-2xl font-bold text-purple-900 mt-2">S/ {reporteFinanciero.totales.yape.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-yellow-50 p-6 rounded-xl shadow-sm border border-yellow-200">
+                    <p className="text-sm font-bold text-yellow-700 uppercase">Total Virtual (MP)</p>
+                    <p className="text-2xl font-bold text-yellow-900 mt-2">S/ {reporteFinanciero.totales.tarjeta?.toFixed(2) || '0.00'}</p>
                   </div>
                   <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-blue-200">
                     <p className="text-sm font-bold text-blue-700 uppercase">Trámites Atendidos</p>
@@ -255,10 +259,11 @@ export default function Admin() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-bold uppercase">
-                          <th className="p-4">Cajero</th>
+                          <th className="p-4">Cajero / Pasarela</th>
                           <th className="p-4 text-center">Trámites Cobrados</th>
                           <th className="p-4 text-right">Efectivo Recaudado</th>
                           <th className="p-4 text-right">Yape Recaudado</th>
+                          <th className="p-4 text-right text-yellow-700">Virtual (MP)</th>
                           <th className="p-4 text-right text-slate-800">Total General</th>
                         </tr>
                       </thead>
@@ -269,12 +274,13 @@ export default function Admin() {
                             <td className="p-4 text-center font-bold text-slate-600">{c.cantidad}</td>
                             <td className="p-4 text-right text-green-700">S/ {c.efectivo.toFixed(2)}</td>
                             <td className="p-4 text-right text-purple-700">S/ {c.yape.toFixed(2)}</td>
+                            <td className="p-4 text-right text-yellow-700">S/ {(c.tarjeta || 0).toFixed(2)}</td>
                             <td className="p-4 text-right font-bold text-slate-800">S/ {c.total.toFixed(2)}</td>
                           </tr>
                         ))}
                         {reporteFinanciero.desgloseCajeros.length === 0 && (
                           <tr>
-                            <td colSpan="5" className="p-4 text-center text-slate-500">No hay datos de recaudación registrados.</td>
+                            <td colSpan="6" className="p-4 text-center text-slate-500">No hay datos de recaudación registrados.</td>
                           </tr>
                         )}
                       </tbody>
