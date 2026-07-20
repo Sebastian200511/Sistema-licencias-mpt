@@ -15,7 +15,7 @@ export const reportesService = {
       const { data: expedientes, error: errExpedientes } = await supabase
         .from('expedientes')
         .select('cajero_id, monto_pagado, metodo_pago, created_at')
-        .eq('pago_realizado', true);
+        .gt('monto_pagado', 0);
 
       if (errExpedientes) throw errExpedientes;
 
