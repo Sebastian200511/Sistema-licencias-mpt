@@ -58,12 +58,13 @@ export const expedientesService = {
       .upsert({ 
         ruc: empresaData.ruc, 
         razon_social: empresaData.razonSocial, 
-        domicilio_fiscal: empresaData.domicilioFiscal 
+        domicilio_fiscal: empresaData.domicilioFiscal,
+        email_contacto: empresaData.emailContacto
       }, { onConflict: 'ruc' })
       .select()
       .single();
 
-    if (error) throw new Error('Error al guardar datos de la empresa.');
+    if (error) throw new Error('Error al guardar datos de la empresa: ' + error.message);
     return data;
   },
 
@@ -112,7 +113,7 @@ export const expedientesService = {
       .eq('inspecciones.fecha_programada', hoyStr)
       .order('fecha_creacion', { ascending: false });
 
-    if (error) throw new Error('Error al cargar trámites.');
+    if (error) throw new Error('Error al cargar trámites: ' + error.message);
     return data;
   },
 
@@ -131,5 +132,17 @@ export const expedientesService = {
       .eq('id', expedienteId);
 
     if (error) throw new Error('Error al cambiar el estado del expediente.');
+  },
+
+  enviarCorreoNotificacion: async (datosCorreo) => {
+    // datosCorreo: { email, codigo, razonSocial, fechaVisita, esExpress }
+    const { data, error } = await supabase.functions.invoke('send-email-notification', {
+      body: datosCorreo,
+    });
+    
+    if (error) {
+      console.error("Error al enviar correo:", error);
+    }
+    return data;
   }
 };

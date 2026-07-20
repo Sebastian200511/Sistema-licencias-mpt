@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, Lock, DollarSign, LogOut, Printer, Smartphone, Banknote, History } from 'lucide-react';
+import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, Lock, DollarSign, LogOut, Printer, Smartphone, Banknote, History, Mail } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
 import { cajaService } from '../services/cajaService';
@@ -20,6 +20,7 @@ export default function Cajero() {
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null);
   const [fileObject, setFileObject] = useState(null);
   const [resultadoTramite, setResultadoTramite] = useState(null);
+  const [emailContacto, setEmailContacto] = useState('');
 
   // Módulo de Caja
   const [sesionCaja, setSesionCaja] = useState(null);
@@ -117,6 +118,7 @@ export default function Cajero() {
     setResultadoTramite(null);
     setMetodoPago('Efectivo');
     setEfectivoRecibido('');
+    setEmailContacto('');
     setError('');
   };
 
@@ -191,7 +193,8 @@ export default function Cajero() {
       const empresaDb = await expedientesService.guardarEmpresa({
         ruc: empresaValidada.ruc,
         razonSocial: empresaValidada.razonSocial,
-        domicilioFiscal: empresaValidada.domicilioFiscal
+        domicilioFiscal: empresaValidada.domicilioFiscal,
+        emailContacto: emailContacto
       });
 
       const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
@@ -224,6 +227,17 @@ export default function Cajero() {
         esExpress: esRenovacionExpress, 
         fechaVisita: fechaVisitaAsignada 
       });
+
+      // Disparar correo real usando la Edge Function en segundo plano (sin bloquear UI)
+      if (emailContacto) {
+        expedientesService.enviarCorreoNotificacion({
+          email: emailContacto,
+          codigo: codigoExpediente,
+          razonSocial: empresaValidada.razonSocial,
+          fechaVisita: fechaVisitaAsignada,
+          esExpress: esRenovacionExpress
+        }).catch(err => console.error("Error lanzando correo:", err));
+      }
 
       cargarHistorialTurno(sesionCaja);
 
@@ -427,6 +441,21 @@ export default function Cajero() {
                     </label>
                   </div>
                 )}
+
+                <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-teal-600"/> Correo Electrónico de Contacto
+                  </label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={emailContacto} 
+                    onChange={(e) => setEmailContacto(e.target.value)}
+                    placeholder="correo@empresa.com"
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-600 outline-none"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Obligatorio para el envío de notificaciones y certificado virtual.</p>
+                </div>
 
                 {!esRenovacionExpress && (
                   <div className="border-2 border-dashed border-slate-300 p-6 rounded-lg text-center bg-slate-50">

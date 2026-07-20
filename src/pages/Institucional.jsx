@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,10 +9,19 @@ import Alert from '../components/Alert';
 
 export default function Institucional() {
   const navigate = useNavigate();
-  const { login, logout } = useAuth();
+  const { login, logout, isAuthenticated, userRole } = useAuth();
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const rolNormalizado = userRole?.toLowerCase();
+      if (rolNormalizado === 'inspector') navigate('/inspector', { replace: true });
+      else if (rolNormalizado === 'cajero') navigate('/cajero', { replace: true });
+      else if (rolNormalizado === 'admin') navigate('/admin', { replace: true });
+    }
+  }, [isAuthenticated, userRole, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
