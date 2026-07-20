@@ -15,6 +15,12 @@ export default function Institucional() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Intercepta correos de Supabase si la Redirect URL no está bien configurada y manda a la raíz
+    if (window.location.hash && window.location.hash.includes('access_token=') && window.location.hash.includes('type=recovery')) {
+      navigate('/actualizar-password' + window.location.hash, { replace: true });
+      return;
+    }
+
     if (isAuthenticated) {
       const rolNormalizado = userRole?.toLowerCase();
       if (rolNormalizado === 'inspector') navigate('/inspector', { replace: true });

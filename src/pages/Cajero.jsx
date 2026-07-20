@@ -10,6 +10,8 @@ import Button from '../components/Button';
 export default function Cajero() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tabActual, setTabActual] = useState('ventanilla'); // 'ventanilla' | 'historial'
+  const [misCierres, setMisCierres] = useState([]);
   
   const [ruc, setRuc] = useState('');
   const [empresaValidada, setEmpresaValidada] = useState(null);
@@ -38,6 +40,21 @@ export default function Cajero() {
   useEffect(() => {
     cargarCaja();
   }, []);
+
+  useEffect(() => {
+    if (tabActual === 'historial') {
+      cargarMisCierres();
+    }
+  }, [tabActual]);
+
+  const cargarMisCierres = async () => {
+    try {
+      const data = await cajaService.obtenerMisCierres();
+      setMisCierres(data);
+    } catch (err) {
+      console.error('Error cargando cierres:', err);
+    }
+  };
 
   const cargarCaja = async () => {
     try {
@@ -249,8 +266,36 @@ export default function Cajero() {
   };
 
   return (
-    <div className="bg-slate-50 relative">
-      {cajaCerradaResult && (
+    <div className="bg-slate-100 p-6 min-h-screen">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-teal-600 p-3 rounded-xl">
+              <DollarSign className="text-white w-6 h-6" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800">Caja y Ventanilla</h1>
+          </div>
+          
+          <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 p-1">
+            <button 
+              onClick={() => setTabActual('ventanilla')}
+              className={`px-4 py-2 rounded-md font-bold text-sm transition-colors ${tabActual === 'ventanilla' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              Atención Presencial
+            </button>
+            <button 
+              onClick={() => setTabActual('historial')}
+              className={`px-4 py-2 rounded-md font-bold text-sm transition-colors flex items-center gap-2 ${tabActual === 'historial' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              <History className="w-4 h-4" /> Mis Cierres de Caja
+            </button>
+          </div>
+        </div>
+
+        {tabActual === 'ventanilla' ? (
+          <div className="animate-fade-in relative">
+            {cajaCerradaResult && (
         <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-slate-800 mb-6">
           <LogOut className="mx-auto w-16 h-16 text-slate-800 mb-4" />
           <h2 className="text-2xl font-bold">Turno Cerrado Correctamente</h2>
@@ -544,6 +589,62 @@ export default function Cajero() {
 
         </>
       ) : null}
+      </div>
+    ) : tabActual === 'historial' ? (
+          <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200 animate-fade-in">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <History className="w-5 h-5 text-slate-500" /> Historial de Mis Cierres
+            </h2>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-bold uppercase">
+                    <th className="p-4">Apertura</th>
+                    <th className="p-4">Cierre</th>
+                    <th className="p-4 text-right">Inicial</th>
+                    <th className="p-4 text-right">Sistema</th>
+                    <th className="p-4 text-right">Físico</th>
+                    <th className="p-4 text-center">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {misCierres.map((cierre) => {
+                    // Cálculo del descuadre si está cerrada
+                    let estadoBadge = <span className="text-yellow-600 font-bold bg-yellow-100 px-2 py-1 rounded text-xs">Abierta</span>;
+                    if (cierre.estado === 'Cerrada') {
+                      const diferencia = cierre.monto_fisico - cierre.monto_calculado;
+                      if (Math.abs(diferencia) < 0.01) {
+                        estadoBadge = <span className="text-green-600 font-bold bg-green-100 px-2 py-1 rounded text-xs">Cuadrada</span>;
+                      } else if (diferencia > 0) {
+                        estadoBadge = <span className="text-blue-600 font-bold bg-blue-100 px-2 py-1 rounded text-xs">Sobrante (S/ {diferencia.toFixed(2)})</span>;
+                      } else {
+                        estadoBadge = <span className="text-red-600 font-bold bg-red-100 px-2 py-1 rounded text-xs">Faltante (S/ {Math.abs(diferencia).toFixed(2)})</span>;
+                      }
+                    }
+
+                    return (
+                      <tr key={cierre.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors text-sm">
+                        <td className="p-4 font-medium text-slate-800">{new Date(cierre.fecha_apertura).toLocaleString()}</td>
+                        <td className="p-4 text-slate-600">{cierre.fecha_cierre ? new Date(cierre.fecha_cierre).toLocaleString() : '-'}</td>
+                        <td className="p-4 text-right font-bold text-slate-600">S/ {cierre.monto_inicial?.toFixed(2)}</td>
+                        <td className="p-4 text-right">S/ {cierre.monto_calculado?.toFixed(2) || '0.00'}</td>
+                        <td className="p-4 text-right font-bold text-slate-800">S/ {cierre.monto_fisico?.toFixed(2) || '0.00'}</td>
+                        <td className="p-4 text-center">{estadoBadge}</td>
+                      </tr>
+                    );
+                  })}
+                  {misCierres.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-slate-500">No hay historial de cajas cerradas.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -108,5 +108,24 @@ export const cajaService = {
       console.error('Error al calcular monto:', error);
       return { totalRecaudado: 0, totalEfectivo: 0, totalYape: 0 };
     }
+  },
+
+  obtenerMisCierres: async () => {
+    try {
+      const cajeroId = localStorage.getItem('inst_id');
+      if (!cajeroId) throw new Error('Usuario no autenticado.');
+
+      const { data, error } = await supabase
+        .from('caja_sesiones')
+        .select('*')
+        .eq('cajero_id', cajeroId)
+        .order('fecha_apertura', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error al obtener mis cierres:', error);
+      return [];
+    }
   }
 };
