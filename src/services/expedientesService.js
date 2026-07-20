@@ -12,7 +12,7 @@ export const expedientesService = {
       `)
       .eq('codigo', codigo)
       .single();
-      
+
     if (error) throw new Error('Expediente no encontrado.');
     return data;
   },
@@ -20,13 +20,13 @@ export const expedientesService = {
   subirPlanoSubsanacion: async (codigo, file) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `subsanacion-${codigo}-${Date.now()}.${fileExt}`;
-    
+
     const { error: uploadError } = await supabase.storage
       .from('planos')
       .upload(fileName, file);
-      
+
     if (uploadError) throw new Error('Error al subir el plano.');
-    
+
     const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
     return urlData.publicUrl;
   },
@@ -36,7 +36,7 @@ export const expedientesService = {
       .from('expedientes')
       .update({ plano_url: planoUrl })
       .eq('id', expedienteId);
-      
+
     if (error) throw new Error('Error al actualizar el expediente.');
   },
 
@@ -47,7 +47,7 @@ export const expedientesService = {
       .select(`id, expedientes(codigo, estado)`)
       .eq('ruc', ruc)
       .maybeSingle();
-      
+
     if (error && error.code !== 'PGRST116') throw error; // Ignorar not found single
     return data;
   },
@@ -55,9 +55,9 @@ export const expedientesService = {
   guardarEmpresa: async (empresaData) => {
     const { data, error } = await supabase
       .from('empresas')
-      .upsert({ 
-        ruc: empresaData.ruc, 
-        razon_social: empresaData.razonSocial, 
+      .upsert({
+        ruc: empresaData.ruc,
+        razon_social: empresaData.razonSocial,
         domicilio_fiscal: empresaData.domicilioFiscal,
         email_contacto: empresaData.emailContacto
       }, { onConflict: 'ruc' })
@@ -119,7 +119,7 @@ export const expedientesService = {
 
   actualizarEstadoExpediente: async (expedienteId, nuevoEstado) => {
     let updateData = { estado: nuevoEstado };
-    
+
     if (nuevoEstado === 'Aprobado') {
       const fechaVencimiento = new Date();
       fechaVencimiento.setFullYear(fechaVencimiento.getFullYear() + 1);
@@ -139,10 +139,11 @@ export const expedientesService = {
     const { data, error } = await supabase.functions.invoke('send-email-notification', {
       body: datosCorreo,
     });
-    
+
     if (error) {
       console.error("Error al enviar correo:", error);
     }
     return data;
   }
 };
+//claro
