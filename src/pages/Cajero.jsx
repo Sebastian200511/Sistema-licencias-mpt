@@ -207,6 +207,13 @@ export default function Cajero() {
     }
 
     try {
+      const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc);
+      if (verificacion.tieneTramite) {
+        setError(verificacion.mensaje);
+        setLoading(false);
+        return;
+      }
+
       const empresaDb = await expedientesService.guardarEmpresa({
         ruc: empresaValidada.ruc,
         razonSocial: empresaValidada.razonSocial,

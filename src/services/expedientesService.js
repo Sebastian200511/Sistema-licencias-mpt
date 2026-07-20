@@ -68,6 +68,52 @@ export const expedientesService = {
     return data;
   },
 
+  verificarTramiteActivo: async (ruc) => {
+    const { data: empresa, error: errorEmpresa } = await supabase
+      .from('empresas')
+      .select('id')
+      .eq('ruc', ruc)
+      .maybeSingle();
+
+    if (errorEmpresa) throw new Error('Error al verificar empresa.');
+    if (!empresa) return { tieneTramite: false };
+
+    const { data: expedientes, error: errorExp } = await supabase
+      .from('expedientes')
+      .select('estado, fecha_vencimiento')
+      .eq('empresa_id', empresa.id)
+      .neq('estado', 'Rechazado')
+      .order('created_at', { ascending: false });
+
+    if (errorExp) throw new Error('Error al verificar trámites.');
+    if (!expedientes || expedientes.length === 0) return { tieneTramite: false };
+
+    for (const exp of expedientes) {
+      if (['Pendiente', 'En Inspeccion', 'Subsanacion'].includes(exp.estado)) {
+        return { 
+          tieneTramite: true, 
+          mensaje: `La empresa con RUC ${ruc} ya tiene un trámite en curso (Estado: ${exp.estado}).` 
+        };
+      }
+      if (exp.estado === 'Aprobado' && exp.fecha_vencimiento) {
+        // Tratar la fecha considerando zona horaria UTC local
+        const vencimiento = new Date(exp.fecha_vencimiento + 'T00:00:00'); 
+        const hoy = new Date();
+        // Resetear la hora de hoy para comparar solo fechas
+        hoy.setHours(0, 0, 0, 0);
+        
+        if (vencimiento >= hoy) {
+          return { 
+            tieneTramite: true, 
+            mensaje: `La empresa con RUC ${ruc} ya tiene una licencia aprobada y vigente hasta el ${vencimiento.toLocaleDateString()}.` 
+          };
+        }
+      }
+    }
+    
+    return { tieneTramite: false };
+  },
+
   crearExpediente: async (expedienteData) => {
     if (expedienteData.estado === 'Aprobado' && !expedienteData.fecha_vencimiento) {
       const fechaVencimiento = new Date();

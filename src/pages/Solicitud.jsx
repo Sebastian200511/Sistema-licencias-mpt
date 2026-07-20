@@ -22,7 +22,7 @@ export default function Solicitud() {
 
 
 
-  const { empresaId, tipoTramite, razonSocial } = location.state || {};
+  const { empresaId, tipoTramite, razonSocial, emailContacto } = location.state || {};
 
 
 
@@ -254,20 +254,25 @@ export default function Solicitud() {
 
       if (!esRenovacionExpress) {
         const fechaVisita = new Date();
-        fechaVisita.setDate(fechaVisita.getDate() + 4);
-        fechaVisitaStr = fechaVisita.toISOString().split('T')[0];
-
-        await expedientesService.crearInspeccion({ 
-          expediente_id: expData.id, 
-          fecha_programada: fechaVisitaStr, 
-          estado: 'Programada' 
-        });
+        fechaVisitaAsignada = await expedientesService.asignarCupoInteligente(expData.id);
       }
 
+      if (emailContacto) {
+        expedientesService.enviarCorreoNotificacion({
+          email: emailContacto,
+          codigo: codigoExpediente,
+          razonSocial: razonSocial,
+          fechaVisita: fechaVisitaAsignada,
+          esExpress: esRenovacionExpress
+        }).catch(err => console.error("Error lanzando correo:", err));
+      }
 
-
-      setResultadoTramite({ codigo: codigoExpediente, esExpress: esRenovacionExpress, fechaVisita: fechaVisitaStr });
-
+      setResultadoTramite({ 
+        codigo: expData.codigo, 
+        esExpress: esRenovacionExpress, 
+        fechaVisita: fechaVisitaAsignada 
+      });
+      
       sessionStorage.removeItem('mpt_saved_pdf_name');
 
       sessionStorage.removeItem('mpt_saved_pdf_data');

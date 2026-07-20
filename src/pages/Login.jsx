@@ -11,6 +11,7 @@ export default function Login() {
   const [empresaValidada, setEmpresaValidada] = useState(null);
   const [licenciaPrevia, setLicenciaPrevia] = useState(null);
   const [cambiosEstructurales, setCambiosEstructurales] = useState(null);
+  const [emailContacto, setEmailContacto] = useState('');
   
   const [error, setError] = useState('');
   const [buscandoSunat, setBuscandoSunat] = useState(false);
@@ -82,12 +83,20 @@ export default function Login() {
     setError('');
 
     try {
+      const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc);
+      if (verificacion.tieneTramite) {
+        setError(verificacion.mensaje);
+        setIngresando(false);
+        return;
+      }
+
       const { data: empresaDb, error: errEmpresa } = await supabase
         .from('empresas')
         .upsert({ 
           ruc: empresaValidada.ruc, 
           razon_social: empresaValidada.razonSocial,
-          domicilio_fiscal: empresaValidada.domicilioFiscal 
+          domicilio_fiscal: empresaValidada.domicilioFiscal,
+          email_contacto: emailContacto
         }, { onConflict: 'ruc' })
         .select()
         .single();
@@ -100,7 +109,8 @@ export default function Login() {
         state: { 
           empresaId: empresaDb?.id, 
           tipoTramite: tipoTramite,
-          razonSocial: empresaValidada?.razonSocial || 'Empresa'
+          razonSocial: empresaValidada?.razonSocial || 'Empresa',
+          emailContacto: emailContacto
         } 
       });
 
@@ -205,6 +215,19 @@ export default function Login() {
                   <p className="text-xs text-green-700 mt-1">Estado: <span className="font-bold">{empresaValidada?.estado || 'N/A'}</span> | Condición: <span className="font-bold">{empresaValidada?.condicion || 'N/A'}</span></p>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 p-5 rounded-xl mb-4 shadow-sm">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico (Notificaciones)</label>
+              <input 
+                type="email" 
+                required
+                value={emailContacto}
+                onChange={(e) => setEmailContacto(e.target.value)}
+                className="w-full pl-4 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-900 focus:border-blue-900 transition-all outline-none" 
+                placeholder="ejemplo@empresa.com"
+              />
+              <p className="text-xs text-slate-500 mt-2">A este correo llegarán las credenciales de seguimiento y fechas de inspección.</p>
             </div>
 
             {licenciaPrevia && (
