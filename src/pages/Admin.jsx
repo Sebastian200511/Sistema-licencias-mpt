@@ -110,13 +110,14 @@ export default function Admin() {
                 required 
               />
               <InputField 
-                label="Contraseña Temporal" 
+                label="Contraseña Inicial" 
                 type="password" 
                 id="password" 
                 value={form.password} 
                 onChange={e => setForm({...form, password: e.target.value})} 
                 required 
               />
+              <p className="text-xs text-slate-500 mt-1 mb-3">El usuario podrá cambiar esta contraseña al iniciar sesión en su cuenta.</p>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Rol en el Sistema</label>
                 <select 

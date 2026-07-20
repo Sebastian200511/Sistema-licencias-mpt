@@ -11,6 +11,7 @@ import Inspector from './pages/Inspector';
 import Cajero from './pages/Cajero';
 import Admin from './pages/Admin';
 import Institucional from './pages/Institucional';
+import ActualizarPassword from './pages/ActualizarPassword';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
             <Route path="/solicitud" element={<Solicitud />} />
             <Route path="/seguimiento" element={<Seguimiento />} />
             <Route path="/institucional" element={<Institucional />} />
+            <Route path="/actualizar-password" element={<ActualizarPassword />} />
           </Route>
 
           {/* Rutas Privadas / Intranet */}
