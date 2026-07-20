@@ -69,18 +69,18 @@ export default function Seguimiento() {
     }
 
     try {
-      // Usamos el nombre correcto de la columna: fecha_creacion
+      // Usamos el nombre correcto de la columna: created_at
       const data = await expedientesService.obtenerEmpresaPorRuc(formData.ruc.trim());
 
       if (!data || !data.expedientes || data.expedientes.length === 0) {
         throw new Error('No se encontraron trámites registrados para este RUC.');
       }
 
-      // Ordenamos usando fecha_creacion
+      // Ordenamos usando created_at
       const tramitesOrdenados = data.expedientes.sort((a, b) => {
         // Aseguramos que si alguna fecha es nula, no rompa la matemática
-        const fechaA = new Date(a.fecha_creacion || 0);
-        const fechaB = new Date(b.fecha_creacion || 0);
+        const fechaA = new Date(a.created_at || 0);
+        const fechaB = new Date(b.created_at || 0);
         return fechaB - fechaA;
       });
       

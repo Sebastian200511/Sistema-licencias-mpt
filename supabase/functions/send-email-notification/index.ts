@@ -13,7 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { email, codigo, razonSocial, fechaVisita, esExpress } = await req.json();
+    const body = await req.json();
+    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress } = body;
 
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not set in environment variables");
@@ -21,8 +22,14 @@ serve(async (req) => {
 
     let subject = "";
     let htmlContent = "";
+    let destinatarios = [email]; // Por defecto al negocio
 
-    if (esExpress) {
+    const emailInspector = "soporte.starview@gmail.com";
+
+    // Manejar retrocompatibilidad si no mandan tipoNotificacion
+    const tipoReal = tipoNotificacion || (esExpress ? 'renovacion_express' : 'nueva_inspeccion');
+
+    if (tipoReal === 'renovacion_express') {
       subject = `¡Licencia Renovada Exitosamente! - Expediente ${codigo}`;
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
@@ -47,33 +54,71 @@ serve(async (req) => {
           </div>
         </div>
       `;
-    } else {
-      subject = `Inspección Programada - Expediente ${codigo}`;
+    } else if (tipoReal === 'nueva_inspeccion') {
+      // ✅ Enviar al negocio y al inspector
+      if (emailInspector) destinatarios.push(emailInspector); 
+      
+      subject = `Nueva Inspección Programada - Expediente ${codigo}`;
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
           <div style="background-color: #1e3a8a; color: white; padding: 20px; text-align: center;">
             <h1 style="margin: 0; font-size: 24px;">Municipalidad Provincial de Trujillo</h1>
-            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Sistema de Licencias de Funcionamiento</p>
           </div>
           <div style="padding: 30px; background-color: #ffffff;">
-            <h2 style="color: #0f172a; margin-top: 0;">Registro de Trámite Exitoso</h2>
-            <p style="color: #475569; font-size: 16px; line-height: 1.5;">Estimado(a) contribuyente de <strong>${razonSocial}</strong>,</p>
-            <p style="color: #475569; font-size: 16px; line-height: 1.5;">Hemos registrado su solicitud de licencia de funcionamiento. Se ha generado su expediente y se ha programado una visita de inspección técnica a su local.</p>
+            <h2 style="color: #0f172a; margin-top: 0;">Inspección Técnica Programada</h2>
+            <p style="color: #475569; font-size: 16px;">Se ha programado una nueva inspección para el local de <strong>${razonSocial}</strong>.</p>
             
             <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px; margin: 25px 0;">
-              <p style="margin: 0; color: #0f172a; font-weight: bold; font-size: 14px; text-transform: uppercase;">Código de Expediente</p>
-              <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 24px; font-weight: bold;">${codigo}</p>
+              <p style="margin: 0; font-weight: bold; font-size: 14px;">Código de Expediente</p>
+              <p style="margin: 5px 0 0 0; color: #1e3a8a; font-size: 20px; font-weight: bold;">${codigo}</p>
             </div>
 
             <div style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 15px; margin: 25px 0;">
-              <p style="margin: 0; color: #9a3412; font-weight: bold; font-size: 14px; text-transform: uppercase;">Fecha de Inspección Programada</p>
+              <p style="margin: 0; color: #9a3412; font-weight: bold; font-size: 14px;">Fecha de Visita</p>
               <p style="margin: 5px 0 0 0; color: #c2410c; font-size: 18px; font-weight: bold;">${fechaVisita}</p>
             </div>
-
-            <p style="color: #475569; font-size: 16px; line-height: 1.5;">Por favor, asegúrese de que el representante legal o propietario se encuentre en el local en la fecha indicada.</p>
+            
+            <p style="color: #475569; font-size: 14px;">* Al negocio: Asegúrese de estar presente en la fecha indicada.<br/>* Al inspector: Revise su agenda en el sistema.</p>
           </div>
-          <div style="background-color: #f1f5f9; padding: 15px; text-align: center; color: #64748b; font-size: 12px;">
-            <p style="margin: 0;">Este es un mensaje automático, por favor no responda a este correo.</p>
+        </div>
+      `;
+    } else if (tipoReal === 'observacion') {
+      subject = `URGENTE: Observaciones en su Local - Expediente ${codigo}`;
+      htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #b91c1c; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Municipalidad Provincial de Trujillo</h1>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #b91c1c; margin-top: 0;">Local Observado por Inspector</h2>
+            <p style="color: #475569; font-size: 16px;">Estimado(a) representante de <strong>${razonSocial}</strong>,</p>
+            <p style="color: #475569; font-size: 16px;">Durante la inspección de hoy, nuestro personal técnico ha registrado las siguientes observaciones de seguridad que deben ser subsanadas:</p>
+            
+            <div style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; color: #991b1b; font-family: monospace;">${observaciones}</p>
+            </div>
+
+            <p style="color: #475569; font-size: 16px;">Se ha programado una segunda y última visita de inspección para verificar la subsanación:</p>
+            
+            <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold;">NUEVA FECHA DE INSPECCIÓN: <span style="color: #2563eb; font-size: 18px;">${fechaVisita}</span></p>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (tipoReal === 'vencimiento') {
+      subject = `AVISO: Licencia Vencida - Expediente ${codigo}`;
+      htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #c2410c; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Municipalidad Provincial de Trujillo</h1>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #c2410c; margin-top: 0;">Licencia de Funcionamiento Caducada</h2>
+            <p style="color: #475569; font-size: 16px;">Estimado(a) contribuyente de <strong>${razonSocial}</strong>,</p>
+            <p style="color: #475569; font-size: 16px;">Le notificamos formalmente que la vigencia de su Licencia de Funcionamiento (Expediente ${codigo}) <strong>ha expirado</strong>.</p>
+            
+            <p style="color: #475569; font-size: 16px;">Por favor, inicie su proceso de renovación inmediatamente a través de nuestra plataforma virtual para evitar multas o clausuras.</p>
           </div>
         </div>
       `;
@@ -87,7 +132,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: "Municipalidad de Trujillo <onboarding@resend.dev>",
-        to: [email],
+        to: destinatarios,
         subject: subject,
         html: htmlContent,
       }),

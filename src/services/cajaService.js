@@ -70,10 +70,10 @@ export const cajaService = {
     try {
       const { data, error } = await supabase
         .from('expedientes')
-        .select('id, codigo, fecha_creacion, monto_pagado, metodo_pago')
+        .select('id, codigo, created_at, monto_pagado, metodo_pago')
         .eq('cajero_id', cajeroId)
-        .gte('fecha_creacion', fechaApertura)
-        .order('fecha_creacion', { ascending: false });
+        .gte('created_at', fechaApertura)
+        .order('created_at', { ascending: false });
         
       if (error) throw error;
       return data || [];

@@ -263,7 +263,8 @@ export default function Solicitud() {
           codigo: codigoExpediente,
           razonSocial: razonSocial,
           fechaVisita: fechaVisitaAsignada,
-          esExpress: esRenovacionExpress
+          esExpress: esRenovacionExpress,
+          tipoNotificacion: esRenovacionExpress ? 'renovacion_express' : 'nueva_inspeccion'
         }).catch(err => console.error("Error lanzando correo:", err));
       }
 

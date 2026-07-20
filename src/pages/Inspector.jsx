@@ -76,6 +76,19 @@ export default function Inspector() {
           observaciones: 'Reprogramación por primera visita observada'
         });
 
+        // ENVIAR CORREO DE OBSERVACION
+        const expData = expedientes.find(e => e.id === expedienteId);
+        if (expData?.empresas?.email_contacto) {
+          expedientesService.enviarCorreoNotificacion({
+            email: expData.empresas.email_contacto,
+            codigo: expData.codigo,
+            razonSocial: expData.empresas.razon_social,
+            fechaVisita: fechaSegundaVisita,
+            observaciones: textoObservacion,
+            tipoNotificacion: 'observacion'
+          }).catch(err => console.error("Error enviando correo observacion:", err));
+        }
+
         setMensajeExito(`Expediente observado. Se programó 2da visita y se notificó al negocio (Fecha: ${fechaSegundaVisita}).`);
       } else {
         setMensajeExito('Se emitió la Resolución de Aprobación.');

@@ -4,7 +4,7 @@ export const pdfGenerator = {
   generarLicencia: (tramite) => {
     const doc = new jsPDF();
     const empresa = tramite.empresas || {};
-    const fechaEmision = new Date(tramite.fecha_creacion || new Date());
+    const fechaEmision = new Date(tramite.created_at || new Date());
     const fechaVencimiento = tramite.fecha_vencimiento 
       ? new Date(`${tramite.fecha_vencimiento}T23:59:59`) 
       : (() => { const d = new Date(fechaEmision); d.setFullYear(d.getFullYear() + 1); return d; })();

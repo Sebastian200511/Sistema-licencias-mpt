@@ -153,11 +153,11 @@ export const expedientesService = {
       .from('expedientes')
       .select(`
         *, 
-        empresas(ruc, razon_social, domicilio_fiscal),
+        empresas(ruc, razon_social, domicilio_fiscal, email_contacto),
         inspecciones!inner(fecha_programada, estado)
       `)
       .eq('inspecciones.fecha_programada', hoyStr)
-      .order('fecha_creacion', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) throw new Error('Error al cargar trámites: ' + error.message);
     return data;
