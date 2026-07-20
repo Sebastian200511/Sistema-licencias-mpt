@@ -169,25 +169,24 @@ export default function Solicitud() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/api/crear-preferencia', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error: functionError } = await import('../supabaseClient').then(m => m.supabase).then(supabase => supabase.functions.invoke('crear-preferencia', {
+        body: {
           razonSocial,
-          tipoTramite
-        })
-      });
+          tipoTramite,
+          originUrl: window.location.origin
+        }
+      }));
 
-      const data = await response.json();
+      if (functionError) throw functionError;
 
-      if (data.id) {
+      if (data && data.id) {
         setPreferenceId(data.id);
       } else {
         throw new Error('Error al generar la preferencia de pago.');
       }
     } catch (err) {
       setError('Fallo al conectar con el backend de pagos.');
-      console.error(err);
+      console.error('Error invocando Edge Function:', err);
     } finally {
       setLoading(false);
     }
