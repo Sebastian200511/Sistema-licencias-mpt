@@ -245,7 +245,6 @@ export default function Solicitud() {
         codigo: codigoExpediente, 
         empresa_id: empresaId, 
         plano_url: planoPublicUrl, 
-        pago_realizado: true, 
         monto_pagado: 3.00,
         metodo_pago: 'Tarjeta', // Pago virtual
         estado: estadoInicial 

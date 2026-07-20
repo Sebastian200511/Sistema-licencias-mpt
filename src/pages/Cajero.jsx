@@ -226,7 +226,6 @@ export default function Cajero() {
         codigo: codigoExpediente,
         empresa_id: empresaDb.id,
         plano_url: planoPublicUrl,
-        pago_realizado: true,
         monto_pagado: TARIFA,
         estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente',
         modalidad_ingreso: 'Presencial',
