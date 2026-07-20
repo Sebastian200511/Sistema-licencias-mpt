@@ -179,8 +179,9 @@ export default function Solicitud() {
 
       if (functionError) throw functionError;
 
-      if (data && data.id) {
-        setPreferenceId(data.id);
+      if (data && data.init_point) {
+        // Redirigir de frente a la pasarela de Mercado Pago (Checkout Pro)
+        window.location.href = data.init_point;
       } else {
         throw new Error('Error al generar la preferencia de pago.');
       }
@@ -470,38 +471,20 @@ export default function Solicitud() {
 
 
               {pagoAprobado ? (
-
                 <div className="bg-green-100 text-green-800 p-4 rounded-lg text-sm font-bold text-center flex items-center justify-center gap-2 border border-green-300">
-
                   <CheckCircle className="w-5 h-5" /> ¡Pago Verificado Exitosamente por Mercado Pago!
-
                 </div>
-
-              ) : preferenceId ? (
-
-                <div className="mt-4">
-
-                  <Wallet initialization={{ preferenceId: preferenceId }} />
-
-                </div>
-
               ) : (
-
                 <div className="flex flex-col gap-3">
-
                   <button
-
                     type="button"
-
                     onClick={generarBotonDePago}
                     disabled={loading}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-sm transition shadow-md"
                   >
-                    {loading ? 'Conectando con Mercado Pago...' : 'Pagar S/ 3.00 (Tarifa Oficial)'}
+                    {loading ? 'Redirigiendo a Mercado Pago...' : 'Pagar S/ 3.00 (Tarifa Oficial)'}
                   </button>
-
                 </div>
-
               )}
 
             </div>
