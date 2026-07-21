@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, Trash2, LayoutDashboard, DollarSign, Wallet, TrendingUp } from 'lucide-react';
+import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, Trash2, LayoutDashboard, DollarSign, Wallet, TrendingUp, FileText, Search } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { authService } from '../services/authService';
 import { reportesService } from '../services/reportesService';
@@ -13,8 +13,12 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   
-  const [tabActual, setTabActual] = useState('directorio'); // 'directorio' | 'reportes'
+  const [tabActual, setTabActual] = useState('directorio'); // 'directorio' | 'reportes' | 'expedientes'
   const [reporteFinanciero, setReporteFinanciero] = useState(null);
+  
+  // Expedientes State
+  const [expedientes, setExpedientes] = useState([]);
+  const [filtroBusqueda, setFiltroBusqueda] = useState('');
 
   // Formulario nuevo usuario (Solo crea el perfil si el auth.user ya existe, 
   // en un entorno real se usaría una Edge Function con service_role para crear el auth.user)
@@ -49,11 +53,25 @@ export default function Admin() {
     }
   };
 
+  const cargarExpedientes = async () => {
+    setLoading(true);
+    try {
+      const data = await reportesService.obtenerTodosExpedientes();
+      setExpedientes(data || []);
+    } catch (err) {
+      setError('Error al cargar expedientes: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tabActual === 'directorio') {
       cargarUsuarios();
-    } else {
+    } else if (tabActual === 'reportes') {
       cargarReportes();
+    } else if (tabActual === 'expedientes') {
+      cargarExpedientes();
     }
   }, [tabActual]);
 
@@ -112,11 +130,17 @@ export default function Admin() {
             >
               Directorio de Personal
             </button>
-            <button 
+            <button
               onClick={() => setTabActual('reportes')}
-              className={`px-4 py-2 rounded-md font-bold text-sm transition-colors flex items-center gap-2 ${tabActual === 'reportes' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg transition-colors ${tabActual === 'reportes' ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
             >
-              <TrendingUp className="w-4 h-4" /> Reportes Financieros
+              <LayoutDashboard className="w-4 h-4" /> Reporte Financiero
+            </button>
+            <button
+              onClick={() => setTabActual('expedientes')}
+              className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg transition-colors ${tabActual === 'expedientes' ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+            >
+              <FileText className="w-4 h-4" /> Gestión de Expedientes
             </button>
           </div>
         </div>
@@ -222,7 +246,7 @@ export default function Admin() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : tabActual === 'reportes' ? (
           <div className="space-y-6 animate-fade-in">
             {reporteFinanciero ? (
               <>
@@ -289,11 +313,80 @@ export default function Admin() {
                 </div>
               </>
             ) : (
-              <div className="text-center py-10 text-slate-500">Cargando reportes...</div>
+              <div className="text-center py-10 text-slate-500">Cargando reporte...</div>
             )}
           </div>
-        )}
+        ) : tabActual === 'expedientes' ? (
+          <div className="bg-white p-6 rounded-xl shadow-md animate-fade-in border border-slate-200">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-teal-600" />
+                Bandeja Central de Expedientes
+              </h2>
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input 
+                  type="text"
+                  placeholder="Buscar por código o empresa..."
+                  className="w-full pl-9 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+                  value={filtroBusqueda}
+                  onChange={(e) => setFiltroBusqueda(e.target.value)}
+                />
+              </div>
+            </div>
 
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-y border-slate-200 text-slate-600 text-xs font-bold uppercase">
+                    <th className="p-3">Código</th>
+                    <th className="p-3">Empresa</th>
+                    <th className="p-3">Fecha de Ingreso</th>
+                    <th className="p-3">Vencimiento</th>
+                    <th className="p-3 text-center">Estado</th>
+                    <th className="p-3 text-right">Monto (S/)</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {expedientes
+                    .filter(e => 
+                      e.codigo?.toLowerCase().includes(filtroBusqueda.toLowerCase()) || 
+                      e.empresas?.razon_social?.toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
+                      e.empresas?.ruc?.includes(filtroBusqueda)
+                    )
+                    .map(exp => (
+                    <tr key={exp.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="p-3 font-mono font-bold text-teal-700">{exp.codigo}</td>
+                      <td className="p-3">
+                        <p className="font-bold text-slate-800">{exp.empresas?.razon_social || 'Desconocido'}</p>
+                        <p className="text-xs text-slate-500">RUC: {exp.empresas?.ruc}</p>
+                      </td>
+                      <td className="p-3 text-slate-600">{new Date(exp.created_at).toLocaleDateString()}</td>
+                      <td className="p-3 text-slate-600">{exp.fecha_vencimiento ? new Date(exp.fecha_vencimiento).toLocaleDateString() : '-'}</td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-bold 
+                          ${exp.estado === 'Aprobado' ? 'bg-green-100 text-green-700' : 
+                            exp.estado === 'Vencido' ? 'bg-red-100 text-red-700' :
+                            exp.estado === 'Rechazado' ? 'bg-slate-200 text-slate-700' :
+                            'bg-yellow-100 text-yellow-700'}`}>
+                          {exp.estado}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-700">
+                        {Number(exp.monto_pagado).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                  {expedientes.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

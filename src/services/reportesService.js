@@ -98,5 +98,24 @@ export const reportesService = {
       console.error('Error generando reporte:', error);
       throw error;
     }
+  },
+
+  obtenerTodosExpedientes: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('expedientes')
+        .select(`
+          id, codigo, estado, modalidad_ingreso, fecha_vencimiento, monto_pagado, metodo_pago, created_at,
+          empresas ( ruc, razon_social )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error al obtener expedientes:', error);
+      throw error;
+    }
   }
 };
+

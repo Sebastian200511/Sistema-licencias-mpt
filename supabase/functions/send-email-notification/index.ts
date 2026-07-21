@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+import nodemailer from "npm:nodemailer@6.9.9";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,10 +14,6 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress } = body;
-
-    if (!RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not set in environment variables");
-    }
 
     let subject = "";
     let htmlContent = "";
@@ -124,23 +119,30 @@ serve(async (req) => {
       `;
     }
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
+    // === CONFIGURACIÓN DE NODEMAILER (GMAIL) ===
+    const GMAIL_USER = Deno.env.get("GMAIL_USER");
+    const GMAIL_PASS = Deno.env.get("GMAIL_APP_PASSWORD");
+
+    if (!GMAIL_USER || !GMAIL_PASS) {
+      throw new Error("Las variables GMAIL_USER o GMAIL_APP_PASSWORD no están configuradas.");
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: GMAIL_USER,
+        pass: GMAIL_PASS,
       },
-      body: JSON.stringify({
-        from: "Municipalidad de Trujillo <onboarding@resend.dev>",
-        to: destinatarios,
-        subject: subject,
-        html: htmlContent,
-      }),
     });
 
-    const data = await res.json();
+    const info = await transporter.sendMail({
+      from: `"Municipalidad de Trujillo" <${GMAIL_USER}>`,
+      to: destinatarios.join(", "),
+      subject: subject,
+      html: htmlContent,
+    });
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ success: true, messageId: info.messageId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
