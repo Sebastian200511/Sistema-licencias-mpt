@@ -7,6 +7,8 @@ import Button from '../components/Button';
 
 export default function Inspector() {
   const [expedientes, setExpedientes] = useState([]);
+  const [historial, setHistorial] = useState([]);
+  const [tabActual, setTabActual] = useState('pendientes');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
@@ -15,8 +17,13 @@ export default function Inspector() {
   const cargarExpedientes = async () => {
     setLoading(true);
     try {
-      const expedientesDeHoy = await expedientesService.obtenerInspeccionesDeHoy();
-      setExpedientes(expedientesDeHoy);
+      if (tabActual === 'pendientes') {
+        const pendientes = await expedientesService.obtenerInspeccionesPendientes();
+        setExpedientes(pendientes);
+      } else {
+        const h = await expedientesService.obtenerHistorialInspecciones();
+        setHistorial(h);
+      }
     } catch (err) {
       setError(err.message || 'Error al cargar trámites.');
     } finally {
@@ -42,7 +49,7 @@ export default function Inspector() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [tabActual]);
 
   const actualizarEstadoTramite = async (expedienteId, nuevoEstado) => {
     setError('');
@@ -119,14 +126,16 @@ export default function Inspector() {
 
   const agrupados = { atrasadas: [], hoy: [], manana: [], futuras: [] };
   
-  expedientes.forEach(exp => {
-    const f = exp.inspecciones?.[0]?.fecha_programada;
-    if (!f) return;
-    if (f < hoyStr) agrupados.atrasadas.push(exp);
-    else if (f === hoyStr) agrupados.hoy.push(exp);
-    else if (f === mananaStr) agrupados.manana.push(exp);
-    else agrupados.futuras.push(exp);
-  });
+  if (tabActual === 'pendientes') {
+    expedientes.forEach(exp => {
+      const f = exp.inspecciones?.[0]?.fecha_programada;
+      if (!f) return;
+      if (f < hoyStr) agrupados.atrasadas.push(exp);
+      else if (f === hoyStr) agrupados.hoy.push(exp);
+      else if (f === mananaStr) agrupados.manana.push(exp);
+      else agrupados.futuras.push(exp);
+    });
+  }
 
   const renderGrupo = (titulo, lista, colorClase) => {
     if (lista.length === 0) return null;
@@ -219,28 +228,71 @@ export default function Inspector() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <ListFilter className="text-blue-900 w-6 h-6" /> Bandeja de Inspecciones Pendientes
+            <ListFilter className="text-blue-900 w-6 h-6" /> Bandeja de Inspecciones
           </h2>
           <Button onClick={cargarExpedientes} isLoading={loading} variant="secondary" className="w-auto px-4 py-2 text-sm bg-white shadow-sm border border-slate-200 text-slate-700 hover:bg-slate-50">
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Actualizar Lista
           </Button>
         </div>
 
+        <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg mb-6 max-w-sm">
+          <button
+            onClick={() => setTabActual('pendientes')}
+            className={`flex-1 py-2 text-sm font-bold rounded-md transition ${tabActual === 'pendientes' ? 'bg-white shadow text-blue-800' : 'text-slate-600 hover:bg-slate-300'}`}
+          >
+            Pendientes
+          </button>
+          <button
+            onClick={() => setTabActual('historial')}
+            className={`flex-1 py-2 text-sm font-bold rounded-md transition ${tabActual === 'historial' ? 'bg-white shadow text-blue-800' : 'text-slate-600 hover:bg-slate-300'}`}
+          >
+            Historial
+          </button>
+        </div>
+
         {error && <Alert type="error" message={error} />}
         {mensajeExito && <Alert type="success" message={mensajeExito} />}
 
-        {expedientes.length === 0 ? (
-          <div className="bg-white p-12 rounded-xl shadow border border-slate-200 text-center text-slate-500 font-medium flex flex-col items-center justify-center">
-            <ClipboardCheck className="w-16 h-16 text-slate-300 mb-4" />
-            <p className="text-lg">No hay inspecciones pendientes programadas en este momento.</p>
-            <p className="text-sm font-normal mt-1 text-slate-400">Buen trabajo, la bandeja está limpia.</p>
-          </div>
+        {tabActual === 'pendientes' ? (
+          expedientes.length === 0 ? (
+            <div className="bg-white p-12 rounded-xl shadow border border-slate-200 text-center text-slate-500 font-medium flex flex-col items-center justify-center">
+              <ClipboardCheck className="w-16 h-16 text-slate-300 mb-4" />
+              <p className="text-lg">No hay inspecciones pendientes programadas en este momento.</p>
+              <p className="text-sm font-normal mt-1 text-slate-400">Buen trabajo, la bandeja está limpia.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
+              {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
+              {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
+              {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
+            </div>
+          )
         ) : (
-          <div className="space-y-2">
-            {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
-            {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
-            {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
-            {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
+          <div className="space-y-4">
+            {historial.length === 0 ? (
+              <div className="bg-white p-12 rounded-xl shadow border border-slate-200 text-center text-slate-500 font-medium">
+                <p className="text-lg">No hay trámites en el historial.</p>
+              </div>
+            ) : (
+              historial.map((exp) => {
+                const tienePlanoUrlReal = exp.plano_url && exp.plano_url.startsWith('http');
+                return (
+                  <div key={exp.id} className="bg-white rounded-xl shadow border-l-4 border-slate-300 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-mono font-bold text-slate-900">{exp.codigo}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${exp.estado === 'Aprobado' ? 'bg-green-100 text-green-800' : exp.estado === 'Rechazado' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}`}>
+                          {exp.estado}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-700">{exp.empresas?.razon_social}</h3>
+                      <p className="text-xs text-slate-500">Fecha Prog: {exp.inspecciones?.[0]?.fecha_programada}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </div>

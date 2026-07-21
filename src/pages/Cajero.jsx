@@ -23,6 +23,7 @@ export default function Cajero() {
   const [fileObject, setFileObject] = useState(null);
   const [resultadoTramite, setResultadoTramite] = useState(null);
   const [emailContacto, setEmailContacto] = useState('');
+  const [tipoComprobante, setTipoComprobante] = useState('Boleta');
 
   // Módulo de Caja
   const [sesionCaja, setSesionCaja] = useState(null);
@@ -265,6 +266,13 @@ export default function Cajero() {
         fechaVisita: fechaVisitaAsignada 
       });
 
+      // Generar Comprobante PDF (Boleta o Factura)
+      try {
+        pdfGenerator.generarComprobanteSunat(resultado, empresaDb, TARIFA, tipoComprobante);
+      } catch (pdfErr) {
+        console.error("Error generando PDF de comprobante:", pdfErr);
+      }
+
       // Disparar correo real usando la Edge Function en segundo plano (sin bloquear UI)
       if (emailContacto) {
         expedientesService.enviarCorreoNotificacion({
@@ -273,7 +281,8 @@ export default function Cajero() {
           razonSocial: empresaValidada.razonSocial,
           fechaVisita: fechaVisitaAsignada,
           esExpress: esRenovacionExpress,
-          tipoNotificacion: esRenovacionExpress ? 'renovacion_express' : 'nueva_inspeccion'
+          tipoComprobante: tipoComprobante, // Pasamos el tipo al backend
+          tipoNotificacion: 'comprobante_pago' // El correo será un comprobante + notificacion
         }).catch(err => console.error("Error lanzando correo:", err));
       }
 
@@ -553,12 +562,40 @@ export default function Cajero() {
                   </div>
                 )}
 
-                <div className="bg-slate-800 p-4 rounded-t-lg text-white flex justify-between items-center">
+                <div className="bg-slate-800 p-4 rounded-t-lg text-white flex justify-between items-center mt-4">
                    <div>
                      <p className="font-bold">Pago en Caja Municipal</p>
                      <p className="text-xs text-slate-300">Tasa administrativa por Licencia</p>
                    </div>
                    <p className="text-2xl font-bold font-mono">S/ {TARIFA.toFixed(2)}</p>
+                </div>
+
+                <div className="bg-white p-4 border border-x-slate-200 border-b-slate-200">
+                  <p className="text-sm font-bold text-slate-700 mb-2">Tipo de Comprobante</p>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="comprobante" 
+                        value="Boleta" 
+                        checked={tipoComprobante === 'Boleta'} 
+                        onChange={(e) => setTipoComprobante(e.target.value)}
+                        className="text-teal-600 focus:ring-teal-600 w-4 h-4"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">Boleta Electrónica</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="comprobante" 
+                        value="Factura" 
+                        checked={tipoComprobante === 'Factura'} 
+                        onChange={(e) => setTipoComprobante(e.target.value)}
+                        className="text-teal-600 focus:ring-teal-600 w-4 h-4"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">Factura Electrónica</span>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="bg-slate-100 p-4 rounded-b-lg border border-slate-200 border-t-0 flex gap-4">

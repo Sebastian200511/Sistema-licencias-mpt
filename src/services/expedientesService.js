@@ -162,6 +162,22 @@ export const expedientesService = {
     return data;
   },
 
+  obtenerHistorialInspecciones: async () => {
+    const { data, error } = await supabase
+      .from('expedientes')
+      .select(`
+        *, 
+        empresas(ruc, razon_social, domicilio_fiscal, email_contacto),
+        inspecciones!inner(id, fecha_programada, estado)
+      `)
+      .neq('estado', 'En Inspeccion')
+      .neq('estado', 'Pendiente')
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error('Error al cargar historial: ' + error.message);
+    return data;
+  },
+
   actualizarFechaInspeccion: async (inspeccionId, nuevaFecha) => {
     const { error } = await supabase
       .from('inspecciones')

@@ -13,7 +13,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress } = body;
+    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress, tipoComprobante } = body;
 
     let subject = "";
     let htmlContent = "";
@@ -24,7 +24,33 @@ serve(async (req) => {
     // Manejar retrocompatibilidad si no mandan tipoNotificacion
     const tipoReal = tipoNotificacion || (esExpress ? 'renovacion_express' : 'nueva_inspeccion');
 
-    if (tipoReal === 'renovacion_express') {
+    if (tipoReal === 'comprobante_pago') {
+      subject = `${tipoComprobante || 'Comprobante'} Electrónico - Expediente ${codigo}`;
+      htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #1e3a8a; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Municipalidad Provincial de Trujillo</h1>
+            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Emisión de Comprobante de Pago</p>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #0f172a; margin-top: 0;">¡Hola, ${razonSocial}!</h2>
+            <p style="color: #475569; font-size: 16px; line-height: 1.5;">Hemos procesado el pago de su trámite de licencia (Expediente: <strong>${codigo}</strong>) exitosamente.</p>
+            
+            <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 15px; margin: 25px 0;">
+              <p style="margin: 0; color: #0f172a; font-weight: bold; font-size: 14px; text-transform: uppercase;">Detalle del Comprobante</p>
+              <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 16px;"><strong>Documento:</strong> ${tipoComprobante || 'Comprobante'} Electrónico</p>
+              <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 16px;"><strong>Importe Total:</strong> S/ 3.00</p>
+              <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 16px;"><strong>Concepto:</strong> Tasa Administrativa</p>
+            </div>
+
+            <p style="color: #475569; font-size: 14px; line-height: 1.5;"><em>* El comprobante oficial PDF le fue entregado en ventanilla por nuestro cajero. Si desea una copia digital, ingrese al portal de la MPT con su clave SOL.</em></p>
+          </div>
+          <div style="background-color: #f1f5f9; padding: 15px; text-align: center; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">Este es un mensaje automático generado por el Sistema de Licencias MPT.</p>
+          </div>
+        </div>
+      `;
+    } else if (tipoReal === 'renovacion_express') {
       subject = `¡Licencia Renovada Exitosamente! - Expediente ${codigo}`;
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
