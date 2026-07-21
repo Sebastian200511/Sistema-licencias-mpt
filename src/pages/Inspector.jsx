@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ListFilter, ClipboardCheck, Calendar, RefreshCw, ExternalLink } from 'lucide-react';
+import { ListFilter, ClipboardCheck, Calendar, RefreshCw, ExternalLink, X, AlertTriangle } from 'lucide-react';
 import { expedientesService } from '../services/expedientesService';
 import { supabase } from '../supabaseClient';
 import Alert from '../components/Alert';
@@ -15,6 +15,18 @@ export default function Inspector() {
   const hoyStr = new Date().toISOString().split('T')[0];
   const [filtroFecha, setFiltroFecha] = useState(hoyStr);
 
+  const [modalObs, setModalObs] = useState({ 
+    visible: false, 
+    expedienteId: null,
+    opciones: {
+      planos: false,
+      extintores: false,
+      senalizacion: false,
+      tablero: false,
+      evacuacion: false,
+    },
+    textoExtra: ''
+  });
 
   const cargarExpedientes = useCallback(async () => {
     setLoading(true);
@@ -54,20 +66,13 @@ export default function Inspector() {
     };
   }, [cargarExpedientes]);
 
-  const actualizarEstadoTramite = async (expedienteId, nuevoEstado) => {
+  const actualizarEstadoTramite = async (expedienteId, nuevoEstado, textoObservacionGenerado = null) => {
     setError('');
     setMensajeExito('');
 
-    let textoObservacion = null;
-    
-    // Validar captura de observaciones 
-    if (nuevoEstado === 'Observado') {
-      textoObservacion = window.prompt("Detalle las observaciones encontradas en el local para registrarlas en el expediente:");
-      
-      // Abortar si no se proporciona justificación
-      if (!textoObservacion || textoObservacion.trim() === "") {
-        return; 
-      }
+    // Si no es por modal y es Observado, no debe ejecutarse aquí directamente (se ataja por UI)
+    if (nuevoEstado === 'Observado' && !textoObservacionGenerado) {
+      return; 
     }
 
     try {
@@ -92,7 +97,7 @@ export default function Inspector() {
             codigo: expData.codigo,
             razonSocial: expData.empresas.razon_social,
             fechaVisita: fechaSegundaVisita,
-            observaciones: textoObservacion,
+            observaciones: textoObservacionGenerado,
             tipoNotificacion: 'observacion'
           }).catch(err => console.error("Error enviando correo observacion:", err));
         }
@@ -131,7 +136,9 @@ export default function Inspector() {
   
   if (tabActual === 'pendientes') {
     expedientes.forEach(exp => {
-      const f = exp.inspecciones?.[0]?.fecha_programada;
+      // Find the inspection with the latest scheduled date
+      const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+      const f = ultimaInspeccion?.fecha_programada;
       if (!f) return;
 
       if (filtroFecha) {
@@ -214,13 +221,22 @@ export default function Inspector() {
                     >
                       Dar Conformidad
                     </Button>
-                    <Button 
-                      onClick={() => actualizarEstadoTramite(exp.id, 'Observado')}
-                      variant="danger"
-                      className="w-auto px-4 py-2 text-xs h-8 whitespace-nowrap"
-                    >
-                      Observar Local
-                    </Button>
+                    {exp.estado !== 'Observado' && (
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          setModalObs({
+                            visible: true,
+                            expedienteId: exp.id,
+                            opciones: { planos: false, extintores: false, senalizacion: false, tablero: false, evacuacion: false },
+                            textoExtra: ''
+                          });
+                        }}
+                        className="w-full text-sm font-bold"
+                      >
+                        Observar Local
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -308,6 +324,7 @@ export default function Inspector() {
               </div>
             ) : (
               historial.map((exp) => {
+                const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
                 return (
                   <div key={exp.id} className="bg-white rounded-xl shadow border-l-4 border-slate-300 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -318,7 +335,7 @@ export default function Inspector() {
                         </span>
                       </div>
                       <h3 className="text-sm font-bold text-slate-700">{exp.empresas?.razon_social}</h3>
-                      <p className="text-xs text-slate-500">Fecha Prog: {exp.inspecciones?.[0]?.fecha_programada}</p>
+                      <p className="text-xs text-slate-500">Fecha Prog: {ultimaInspeccion?.fecha_programada}</p>
                     </div>
                   </div>
                 );
@@ -327,6 +344,102 @@ export default function Inspector() {
           </div>
         )}
       </div>
+
+      {/* Modal de Observaciones */}
+      {modalObs.visible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
+              <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Registrar Observaciones
+              </h3>
+              <button 
+                onClick={() => setModalObs({ ...modalObs, visible: false })}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600 mb-2">Seleccione las infracciones o problemas encontrados durante la visita técnica:</p>
+              
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" className="mt-1 w-4 h-4 text-red-600" checked={modalObs.opciones.planos} onChange={(e) => setModalObs({...modalObs, opciones: {...modalObs.opciones, planos: e.target.checked}})} />
+                  <div>
+                    <span className="font-bold text-slate-700 block text-sm">Planos no coinciden con la realidad</span>
+                    <span className="text-xs text-red-500 font-medium">⚠️ Requerirá que el ciudadano suba nuevos planos.</span>
+                  </div>
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-700">
+                  <input type="checkbox" className="w-4 h-4 text-red-600" checked={modalObs.opciones.extintores} onChange={(e) => setModalObs({...modalObs, opciones: {...modalObs.opciones, extintores: e.target.checked}})} />
+                  Falta de extintores o extintores vencidos
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-700">
+                  <input type="checkbox" className="w-4 h-4 text-red-600" checked={modalObs.opciones.senalizacion} onChange={(e) => setModalObs({...modalObs, opciones: {...modalObs.opciones, senalizacion: e.target.checked}})} />
+                  Señalización de seguridad deficiente o nula
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-700">
+                  <input type="checkbox" className="w-4 h-4 text-red-600" checked={modalObs.opciones.tablero} onChange={(e) => setModalObs({...modalObs, opciones: {...modalObs.opciones, tablero: e.target.checked}})} />
+                  Tablero eléctrico expuesto o sin llaves termomagnéticas
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-700">
+                  <input type="checkbox" className="w-4 h-4 text-red-600" checked={modalObs.opciones.evacuacion} onChange={(e) => setModalObs({...modalObs, opciones: {...modalObs.opciones, evacuacion: e.target.checked}})} />
+                  Rutas de evacuación obstruidas
+                </label>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Otras observaciones adicionales (opcional):</label>
+                <textarea 
+                  className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                  rows="3"
+                  placeholder="Escriba aquí si hay detalles específicos..."
+                  value={modalObs.textoExtra}
+                  onChange={(e) => setModalObs({...modalObs, textoExtra: e.target.value})}
+                ></textarea>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+              <button 
+                onClick={() => setModalObs({ ...modalObs, visible: false })}
+                className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  let obsArr = [];
+                  if (modalObs.opciones.planos) obsArr.push("[REQUIERE NUEVOS PLANOS] Planos arquitectónicos no coinciden con la realidad.");
+                  if (modalObs.opciones.extintores) obsArr.push("- Falta de extintores o extintores vencidos.");
+                  if (modalObs.opciones.senalizacion) obsArr.push("- Señalización de seguridad deficiente o nula.");
+                  if (modalObs.opciones.tablero) obsArr.push("- Tablero eléctrico expuesto o sin llaves termomagnéticas.");
+                  if (modalObs.opciones.evacuacion) obsArr.push("- Rutas de evacuación obstruidas.");
+                  if (modalObs.textoExtra.trim() !== '') obsArr.push(`- Otros: ${modalObs.textoExtra.trim()}`);
+                  
+                  if (obsArr.length === 0) {
+                    alert("Debe seleccionar o escribir al menos una observación.");
+                    return;
+                  }
+                  
+                  const textoFinal = obsArr.join('\n');
+                  actualizarEstadoTramite(modalObs.expedienteId, 'Observado', textoFinal);
+                  setModalObs({ ...modalObs, visible: false });
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm"
+              >
+                <AlertTriangle className="w-4 h-4" /> Registrar Observación
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

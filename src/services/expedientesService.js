@@ -158,7 +158,7 @@ export const expedientesService = {
         empresas(ruc, razon_social, domicilio_fiscal, email_contacto),
         inspecciones!inner(id, fecha_programada, estado)
       `)
-      .eq('estado', 'En Inspeccion')
+      .in('estado', ['En Inspeccion', 'Observado'])
       .order('created_at', { ascending: false });
 
     if (error) throw new Error('Error al cargar trámites: ' + error.message);
@@ -173,8 +173,7 @@ export const expedientesService = {
         empresas(ruc, razon_social, domicilio_fiscal, email_contacto),
         inspecciones!inner(id, fecha_programada, estado)
       `)
-      .neq('estado', 'En Inspeccion')
-      .neq('estado', 'Pendiente')
+      .not('estado', 'in', '("En Inspeccion","Observado","Pendiente")')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error('Error al cargar historial: ' + error.message);

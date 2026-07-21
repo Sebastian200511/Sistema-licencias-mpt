@@ -104,6 +104,7 @@ serve(async (req: Request) => {
         </div>
       `;
     } else if (tipoReal === 'observacion') {
+      destinatarios.push(emailInspector);
       subject = `URGENTE: Observaciones en su Local - Expediente ${codigo}`;
       htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
