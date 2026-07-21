@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, Calendar, Copy } from 'lucide-react';
-import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
+import { initMercadoPago } from '@mercadopago/sdk-react';
 import { expedientesService } from '../services/expedientesService';
 
 export default function Solicitud() {
@@ -13,11 +13,7 @@ export default function Solicitud() {
  
 
   // Inicialización de credenciales de Mercado Pago
-
   const MP_PUBLIC_KEY = import.meta.env.VITE_MP_PUBLIC_KEY;
-
-  const MP_ACCESS_TOKEN = import.meta.env.VITE_MP_ACCESS_TOKEN;
-
   initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-PE' });
 
 
@@ -36,11 +32,10 @@ export default function Solicitud() {
 
   const [error, setError] = useState('');
 
- 
-
-  const [preferenceId, setPreferenceId] = useState(null);
-
-  const [pagoAprobado, setPagoAprobado] = useState(false);
+  const [pagoAprobado] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('status') === 'approved' || urlParams.get('collection_status') === 'approved';
+  });
 
 
 
@@ -54,23 +49,16 @@ export default function Solicitud() {
 
     const urlParams = new URLSearchParams(window.location.search);
 
-    const pagoExitoso = urlParams.get('status') === 'approved' || urlParams.get('collection_status') === 'approved';
 
 
 
-    // 1. Si el pago fue un éxito, encendemos el check verde
-
-    if (pagoExitoso) {
-
-      setPagoAprobado(true);
-
-    }
 
     const hasStatus = urlParams.has('status') || urlParams.has('collection_id');
     if (hasStatus) {
       const savedPdfName = sessionStorage.getItem('mpt_saved_pdf_name');
       const savedPdfData = sessionStorage.getItem('mpt_saved_pdf_data');
       if (savedPdfName && savedPdfData && !fileObject) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPlanoSeleccionado(savedPdfName);
         fetch(savedPdfData)
           .then(res => res.blob())
@@ -115,7 +103,7 @@ export default function Solicitud() {
 
     }
 
-  }, [navigate, empresaId, location]);
+  }, [navigate, empresaId, location, fileObject]);
 
 
 
@@ -239,10 +227,9 @@ export default function Solicitud() {
         estado: estadoInicial 
       });
 
-      let fechaVisitaStr = null;
+      let fechaVisitaAsignada = null;
 
       if (!esRenovacionExpress) {
-        const fechaVisita = new Date();
         fechaVisitaAsignada = await expedientesService.asignarCupoInteligente(expData.id);
       }
 
@@ -268,7 +255,7 @@ export default function Solicitud() {
       sessionStorage.removeItem('mpt_saved_pdf_data');
 
     } catch (err) {
-
+      console.error(err);
       setError('Error al registrar el trámite en la base de datos.');
 
     } finally {

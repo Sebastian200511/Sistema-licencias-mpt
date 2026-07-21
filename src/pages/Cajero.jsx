@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, CheckCircle, Upload, ArrowRight, Building2, Calendar, FileText, RefreshCw, Lock, DollarSign, LogOut, Printer, Smartphone, Banknote, History, Mail } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle, Calendar, FileText, DollarSign, LogOut, Printer, Smartphone, Banknote, History, Mail } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
 import { cajaService } from '../services/cajaService';
@@ -38,26 +38,16 @@ export default function Cajero() {
   const [resumenCierre, setResumenCierre] = useState(null);
   const TARIFA = 3.00;
 
-  useEffect(() => {
-    cargarCaja();
+  const cargarHistorialTurno = useCallback(async (cajaActual) => {
+    try {
+      const data = await cajaService.obtenerHistorialTurno(cajaActual.cajero_id, cajaActual.fecha_apertura);
+      setHistorial(data);
+    } catch (err) {
+      console.error('Error al cargar historial', err);
+    }
   }, []);
 
-  useEffect(() => {
-    if (tabActual === 'historial') {
-      cargarMisCierres();
-    }
-  }, [tabActual]);
-
-  const cargarMisCierres = async () => {
-    try {
-      const data = await cajaService.obtenerMisCierres();
-      setMisCierres(data);
-    } catch (err) {
-      console.error('Error cargando cierres:', err);
-    }
-  };
-
-  const cargarCaja = async () => {
+  const cargarCaja = useCallback(async () => {
     try {
       const caja = await cajaService.obtenerCajaAbierta();
       setSesionCaja(caja);
@@ -67,16 +57,28 @@ export default function Cajero() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [cargarHistorialTurno]);
 
-  const cargarHistorialTurno = async (cajaActual) => {
+  const cargarMisCierres = useCallback(async () => {
     try {
-      const data = await cajaService.obtenerHistorialTurno(cajaActual.cajero_id, cajaActual.fecha_apertura);
-      setHistorial(data);
+      const data = await cajaService.obtenerMisCierres();
+      setMisCierres(data);
     } catch (err) {
-      console.error('Error al cargar historial', err);
+      console.error('Error cargando cierres:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarCaja();
+  }, [cargarCaja]);
+
+  useEffect(() => {
+    if (tabActual === 'historial') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      cargarMisCierres();
+    }
+  }, [tabActual, cargarMisCierres]);
 
   const abrirCaja = async (e) => {
     e.preventDefault();
@@ -266,9 +268,10 @@ export default function Cajero() {
         fechaVisita: fechaVisitaAsignada 
       });
 
-      // Generar Comprobante PDF (Boleta o Factura)
+      // Generar Comprobante PDF (Boleta o Factura) y obtener base64
+      let pdfBase64 = null;
       try {
-        pdfGenerator.generarComprobanteSunat(resultado, empresaDb, TARIFA, tipoComprobante);
+        pdfBase64 = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, TARIFA, tipoComprobante);
       } catch (pdfErr) {
         console.error("Error generando PDF de comprobante:", pdfErr);
       }
@@ -282,6 +285,7 @@ export default function Cajero() {
           fechaVisita: fechaVisitaAsignada,
           esExpress: esRenovacionExpress,
           tipoComprobante: tipoComprobante, // Pasamos el tipo al backend
+          adjuntoBase64: pdfBase64, // Mandamos el PDF codificado
           tipoNotificacion: 'comprobante_pago' // El correo será un comprobante + notificacion
         }).catch(err => console.error("Error lanzando correo:", err));
       }

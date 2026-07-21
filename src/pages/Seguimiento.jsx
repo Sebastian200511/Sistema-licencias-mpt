@@ -1,20 +1,16 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar } from 'lucide-react';
 import { expedientesService } from '../services/expedientesService';
 import { pdfGenerator } from '../utils/pdfGenerator';
 
 export default function Seguimiento() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({ ruc: '', codigo: '' });
   const [tramite, setTramite] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [ultimaInspeccion, setUltimaInspeccion] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [modoRecuperacion, setModoRecuperacion] = useState(false);
-  const [codigoRecuperado, setCodigoRecuperado] = useState(null);
-  const [loadingRecuperacion, setLoadingRecuperacion] = useState(false);
   const [subsanacionFile, setSubsanacionFile] = useState(null);
   const [subsanacionLoading, setSubsanacionLoading] = useState(false);
   const [subsanacionExito, setSubsanacionExito] = useState(false);
@@ -56,43 +52,6 @@ export default function Seguimiento() {
       setLoading(false);
     }
   };
-  const handleRecuperarCodigo = async (e) => {
-    e.preventDefault();
-    setError('');
-    setCodigoRecuperado(null);
-    setLoadingRecuperacion(true);
-
-    if (formData.ruc.length !== 11) {
-      setError('Ingrese un RUC válido de 11 dígitos.');
-      setLoadingRecuperacion(false);
-      return;
-    }
-
-    try {
-      // Usamos el nombre correcto de la columna: created_at
-      const data = await expedientesService.obtenerEmpresaPorRuc(formData.ruc.trim());
-
-      if (!data || !data.expedientes || data.expedientes.length === 0) {
-        throw new Error('No se encontraron trámites registrados para este RUC.');
-      }
-
-      // Ordenamos usando created_at
-      const tramitesOrdenados = data.expedientes.sort((a, b) => {
-        // Aseguramos que si alguna fecha es nula, no rompa la matemática
-        const fechaA = new Date(a.created_at || 0);
-        const fechaB = new Date(b.created_at || 0);
-        return fechaB - fechaA;
-      });
-      
-      setCodigoRecuperado(tramitesOrdenados[0].codigo);
-      
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoadingRecuperacion(false);
-    }
-  };
-
   const handleSubsanar = async () => {
     if(!subsanacionFile) return;
     setSubsanacionLoading(true);

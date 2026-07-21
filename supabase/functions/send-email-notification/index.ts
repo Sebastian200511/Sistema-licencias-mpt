@@ -13,7 +13,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress, tipoComprobante } = body;
+    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress, tipoComprobante, adjuntoBase64 } = body;
 
     let subject = "";
     let htmlContent = "";
@@ -161,12 +161,24 @@ serve(async (req) => {
       },
     });
 
-    const info = await transporter.sendMail({
+    const mailOptions: any = {
       from: `"Municipalidad de Trujillo" <${GMAIL_USER}>`,
       to: destinatarios.join(", "),
       subject: subject,
       html: htmlContent,
-    });
+    };
+
+    if (adjuntoBase64) {
+      mailOptions.attachments = [
+        {
+          filename: `${tipoComprobante || 'Comprobante'}_MPT_${codigo}.pdf`,
+          content: adjuntoBase64,
+          encoding: 'base64'
+        }
+      ];
+    }
+
+    const info = await transporter.sendMail(mailOptions);
 
     return new Response(JSON.stringify({ success: true, messageId: info.messageId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

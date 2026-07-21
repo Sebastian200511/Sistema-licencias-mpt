@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ListFilter, ClipboardCheck, AlertTriangle, FileX, Calendar, RefreshCw, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ListFilter, ClipboardCheck, Calendar, RefreshCw, ExternalLink } from 'lucide-react';
 import { expedientesService } from '../services/expedientesService';
 import { supabase } from '../supabaseClient';
 import Alert from '../components/Alert';
@@ -14,7 +14,7 @@ export default function Inspector() {
   const [mensajeExito, setMensajeExito] = useState('');
 
 
-  const cargarExpedientes = async () => {
+  const cargarExpedientes = useCallback(async () => {
     setLoading(true);
     try {
       if (tabActual === 'pendientes') {
@@ -29,9 +29,10 @@ export default function Inspector() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tabActual]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarExpedientes();
 
     // Configuración de Supabase Realtime para la "Reactividad en Vivo"
@@ -40,7 +41,7 @@ export default function Inspector() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expedientes' },
-        (payload) => {
+        () => {
           cargarExpedientes(); // Actualiza automáticamente la bandeja sin F5
         }
       )
@@ -49,7 +50,7 @@ export default function Inspector() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tabActual]);
+  }, [cargarExpedientes]);
 
   const actualizarEstadoTramite = async (expedienteId, nuevoEstado) => {
     setError('');
@@ -276,7 +277,6 @@ export default function Inspector() {
               </div>
             ) : (
               historial.map((exp) => {
-                const tienePlanoUrlReal = exp.plano_url && exp.plano_url.startsWith('http');
                 return (
                   <div key={exp.id} className="bg-white rounded-xl shadow border-l-4 border-slate-300 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>

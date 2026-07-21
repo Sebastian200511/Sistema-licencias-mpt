@@ -15,6 +15,7 @@ export function AuthProvider({ children }) {
     const id = localStorage.getItem('inst_id');
     
     if (session === 'true' && role) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAuthenticated(true);
       setUserRole(role);
       setUserId(id);
@@ -46,4 +47,5 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

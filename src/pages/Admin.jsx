@@ -1,6 +1,7 @@
+ 
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, Trash2, LayoutDashboard, DollarSign, Wallet, TrendingUp, FileText, Search, Settings, FileSpreadsheet, Download, RefreshCw, Briefcase, Mail, Clock, AlertCircle, Edit, Save, X } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, LayoutDashboard, FileText, Search, Edit, Save, X } from 'lucide-react';
+
 import { supabase } from '../supabaseClient';
 import { authService } from '../services/authService';
 import { reportesService } from '../services/reportesService';
@@ -74,8 +75,10 @@ export default function Admin() {
   };
 
   useEffect(() => {
+     
     localStorage.setItem('adminTab', tabActual);
     if (tabActual === 'directorio') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       cargarUsuarios();
     } else if (tabActual === 'reportes') {
       cargarReportes();

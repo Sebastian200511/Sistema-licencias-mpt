@@ -208,14 +208,34 @@ export const pdfGenerator = {
     doc.setFontSize(9);
     doc.text(`SON: ${montoTotal.toFixed(2)} Y 00/100 SOLES`, 15, 145);
 
+    // CÓDIGO HASH Y QR (SIMULADO)
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const hash = Array.from({length: 28}, () => Math.random().toString(36)[2]).join('').toUpperCase() + "=";
+    doc.text(`Resumen Hash: ${hash}`, 15, 155);
+    
+    // Simular un QR (un recuadro negro)
+    doc.setFillColor(0, 0, 0);
+    doc.rect(15, 160, 20, 20, "F");
+    doc.setFillColor(255, 255, 255);
+    doc.rect(17, 162, 4, 4, "F");
+    doc.rect(29, 162, 4, 4, "F");
+    doc.rect(17, 174, 4, 4, "F");
+
     // TEXTO FINAL
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
-    doc.rect(15, 175, 180, 15);
-    doc.text(`Esta es una representación impresa de la ${tituloDoc}, generada en el`, 105, 181, { align: "center" });
-    doc.text("Sistema de la MPT (SUNAT). Puede verificarla utilizando su clave SOL.", 105, 187, { align: "center" });
+    doc.rect(40, 168, 145, 12);
+    doc.text(`Esta es una representación impresa de la ${tituloDoc}, generada en el`, 112.5, 173, { align: "center" });
+    doc.text("Sistema de la MPT (SUNAT). Puede verificarla utilizando su clave SOL.", 112.5, 178, { align: "center" });
 
     const fileName = isFactura ? `Factura_${empresa.ruc}_${numComprobante}.pdf` : `Boleta_${empresa.ruc}_${numComprobante}.pdf`;
+    
+    // Guardar localmente
     doc.save(fileName);
+    
+    // Retornar base64 para envío por correo
+    const base64String = doc.output('datauristring').split(',')[1];
+    return base64String;
   }
 };
