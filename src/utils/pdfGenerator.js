@@ -14,11 +14,9 @@ function numeroALetras(numero) {
   }
   if (numero > 20 && numero < 30) {
     letras += DECENAS[0] + UNIDADES[numero % 10];
-    numero = 0;
   } else if (numero >= 30) {
     letras += DECENAS[Math.floor(numero / 10) - 2];
     if (numero % 10 > 0) letras += 'Y ' + UNIDADES[numero % 10];
-    numero = 0;
   } else if (numero > 0) {
     letras += UNIDADES[numero];
   }

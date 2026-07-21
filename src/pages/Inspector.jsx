@@ -11,7 +11,6 @@ export default function Inspector() {
   const [tabActual, setTabActual] = useState('pendientes');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   const [filtroFecha, setFiltroFecha] = useState('');
 
