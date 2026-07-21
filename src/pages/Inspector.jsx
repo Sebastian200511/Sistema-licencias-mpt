@@ -12,7 +12,8 @@ export default function Inspector() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
-  const [filtroFecha, setFiltroFecha] = useState('');
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const [filtroFecha, setFiltroFecha] = useState(hoyStr);
 
 
   const cargarExpedientes = useCallback(async () => {
@@ -121,7 +122,7 @@ export default function Inspector() {
     }
   };
 
-  const hoyStr = new Date().toISOString().split('T')[0];
+
   const manana = new Date();
   manana.setDate(manana.getDate() + 1);
   const mananaStr = manana.toISOString().split('T')[0];

@@ -282,12 +282,21 @@ export default function Cajero() {
           email: emailContacto,
           codigo: codigoExpediente,
           razonSocial: empresaValidada.razonSocial,
-          fechaVisita: fechaVisitaAsignada,
           esExpress: esRenovacionExpress,
           tipoComprobante: tipoComprobante, // Pasamos el tipo al backend
           adjuntoBase64: pdfBase64, // Mandamos el PDF codificado
-          tipoNotificacion: 'comprobante_pago' // El correo será un comprobante + notificacion
-        }).catch(err => console.error("Error lanzando correo:", err));
+          tipoNotificacion: 'comprobante_pago' // El correo será un comprobante
+        }).catch(err => console.error("Error lanzando correo de comprobante:", err));
+
+        if (fechaVisitaAsignada) {
+          expedientesService.enviarCorreoNotificacion({
+            email: emailContacto,
+            codigo: codigoExpediente,
+            razonSocial: empresaValidada.razonSocial,
+            fechaVisita: fechaVisitaAsignada,
+            tipoNotificacion: 'nueva_inspeccion' 
+          }).catch(err => console.error("Error lanzando correo de inspeccion:", err));
+        }
       }
 
       cargarHistorialTurno(sesionCaja);

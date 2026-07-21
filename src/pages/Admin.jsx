@@ -1,6 +1,6 @@
  
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, LayoutDashboard, FileText, Search, Edit, Save, X } from 'lucide-react';
+import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, LayoutDashboard, FileText, Search, Edit, Save, X, AlertTriangle } from 'lucide-react';
 
 import { supabase } from '../supabaseClient';
 import { authService } from '../services/authService';
@@ -371,6 +371,22 @@ export default function Admin() {
                   />
                   <span className="text-sm font-bold text-purple-800">Modo Demo</span>
                 </label>
+                <button
+                  onClick={async () => {
+                    if (window.confirm("¿Ejecutar proceso de revisión de licencias caducadas? (Esto enviará correos)")) {
+                      try {
+                        const count = await expedientesService.verificarVencimientos();
+                        alert(`Se encontraron y vencieron ${count} licencias caducadas.`);
+                        cargarExpedientes();
+                      } catch (err) {
+                        alert(err.message);
+                      }
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4" /> Vencimientos
+                </button>
                 <div className="relative flex-1 sm:w-72">
                   <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                   <input 

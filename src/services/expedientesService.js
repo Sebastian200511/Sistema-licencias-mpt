@@ -216,6 +216,40 @@ export const expedientesService = {
       console.error("Error al enviar correo:", error);
     }
     return data;
+  },
+
+  verificarVencimientos: async () => {
+    const hoyStr = new Date().toISOString().split('T')[0];
+    const { data: expedientesVencidos, error } = await supabase
+      .from('expedientes')
+      .select('id, codigo, empresas(email_contacto, razon_social)')
+      .eq('estado', 'Aprobado')
+      .lt('fecha_vencimiento', hoyStr);
+      
+    if (error) throw new Error('Error buscando vencimientos: ' + error.message);
+    if (!expedientesVencidos || expedientesVencidos.length === 0) return 0;
+    
+    let vencidosCount = 0;
+    for (const exp of expedientesVencidos) {
+      const { error: updateErr } = await supabase
+        .from('expedientes')
+        .update({ estado: 'Vencido' })
+        .eq('id', exp.id);
+        
+      if (!updateErr) {
+        vencidosCount++;
+        if (exp.empresas && exp.empresas.email_contacto) {
+          expedientesService.enviarCorreoNotificacion({
+            email: exp.empresas.email_contacto,
+            codigo: exp.codigo,
+            razonSocial: exp.empresas.razon_social,
+            tipoNotificacion: 'vencimiento'
+          }).catch(console.error);
+        }
+      }
+    }
+    return vencidosCount;
   }
 };
 //claro
+

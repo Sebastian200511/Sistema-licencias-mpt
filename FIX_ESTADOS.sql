@@ -5,4 +5,4 @@ ALTER TABLE public.expedientes DROP CONSTRAINT IF EXISTS expedientes_estado_chec
 
 ALTER TABLE public.expedientes 
 ADD CONSTRAINT expedientes_estado_check 
-CHECK (estado IN ('Pendiente', 'En Inspeccion', 'Aprobado', 'Rechazado', 'Observado', 'Subsanacion'));
+CHECK (estado IN ('Pendiente', 'En Inspeccion', 'Aprobado', 'Rechazado', 'Observado', 'Subsanacion', 'Vencido'));
