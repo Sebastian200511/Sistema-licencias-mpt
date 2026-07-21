@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, Trash2, LayoutDashboard, DollarSign, Wallet, TrendingUp, FileText, Search } from 'lucide-react';
+import { Users, UserPlus, ShieldAlert, CheckCircle, XCircle, Trash2, LayoutDashboard, DollarSign, Wallet, TrendingUp, FileText, Search, Settings, FileSpreadsheet, Download, RefreshCw, Briefcase, Mail, Clock, AlertCircle, Edit, Save, X } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import { authService } from '../services/authService';
 import { reportesService } from '../services/reportesService';
@@ -19,6 +20,12 @@ export default function Admin() {
   // Expedientes State
   const [expedientes, setExpedientes] = useState([]);
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
+
+  // Estados del Modo Demo
+  const [modoDemo, setModoDemo] = useState(false);
+  const [expedienteEditando, setExpedienteEditando] = useState(null);
+  const [datosDemo, setDatosDemo] = useState({ estado: '', fecha_vencimiento: '', created_at: '' });
+  const [guardandoDemo, setGuardandoDemo] = useState(false);
 
   // Formulario nuevo usuario (Solo crea el perfil si el auth.user ya existe, 
   // en un entorno real se usaría una Edge Function con service_role para crear el auth.user)
@@ -323,15 +330,26 @@ export default function Admin() {
                 <FileText className="w-6 h-6 text-teal-600" />
                 Bandeja Central de Expedientes
               </h2>
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                <input 
-                  type="text"
-                  placeholder="Buscar por código o empresa..."
-                  className="w-full pl-9 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
-                  value={filtroBusqueda}
-                  onChange={(e) => setFiltroBusqueda(e.target.value)}
-                />
+              <div className="flex items-center gap-4 w-full sm:w-auto">
+                <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-200 transition">
+                  <input 
+                    type="checkbox" 
+                    checked={modoDemo} 
+                    onChange={(e) => setModoDemo(e.target.checked)} 
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="text-sm font-bold text-purple-800">Modo Demo</span>
+                </label>
+                <div className="relative flex-1 sm:w-72">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                  <input 
+                    type="text"
+                    placeholder="Buscar por código o empresa..."
+                    className="w-full pl-9 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+                    value={filtroBusqueda}
+                    onChange={(e) => setFiltroBusqueda(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -345,6 +363,7 @@ export default function Admin() {
                     <th className="p-3">Vencimiento</th>
                     <th className="p-3 text-center">Estado</th>
                     <th className="p-3 text-right">Monto (S/)</th>
+                    {modoDemo && <th className="p-3 text-center text-purple-700">Demo</th>}
                   </tr>
                 </thead>
                 <tbody className="text-sm">
@@ -375,11 +394,29 @@ export default function Admin() {
                       <td className="p-3 text-right font-bold text-slate-700">
                         {Number(exp.monto_pagado).toFixed(2)}
                       </td>
+                      {modoDemo && (
+                        <td className="p-3 text-center">
+                          <button 
+                            onClick={() => {
+                              setExpedienteEditando(exp);
+                              setDatosDemo({
+                                estado: exp.estado,
+                                created_at: new Date(exp.created_at).toISOString().split('T')[0],
+                                fecha_vencimiento: exp.fecha_vencimiento ? new Date(exp.fecha_vencimiento).toISOString().split('T')[0] : ''
+                              });
+                            }}
+                            className="bg-purple-100 text-purple-700 p-2 rounded hover:bg-purple-200 transition"
+                            title="Editar en Modo Demo"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {expedientes.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
+                      <td colSpan={modoDemo ? "7" : "6"} className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
                     </tr>
                   )}
                 </tbody>
@@ -388,6 +425,94 @@ export default function Admin() {
           </div>
         ) : null}
       </div>
+
+      {/* Modal Modo Demo */}
+      {expedienteEditando && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="bg-purple-600 p-4 text-white flex justify-between items-center">
+              <h3 className="font-bold flex items-center gap-2"><Edit className="w-5 h-5"/> Modo Demo: Editar Expediente</h3>
+              <button onClick={() => setExpedienteEditando(null)} className="text-white/80 hover:text-white"><X className="w-5 h-5"/></button>
+            </div>
+            
+            <div className="p-6 flex-1 overflow-y-auto space-y-4">
+              <div className="bg-purple-50 p-3 rounded text-sm text-purple-800 border border-purple-200">
+                Estás editando directamente el expediente <strong>{expedienteEditando.codigo}</strong> de <strong>{expedienteEditando.empresas?.razon_social}</strong>. Estos cambios sobreescribirán la base de datos sin ejecutar lógicas de negocio (ideal para demos).
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Estado</label>
+                <select 
+                  value={datosDemo.estado} 
+                  onChange={(e) => setDatosDemo({...datosDemo, estado: e.target.value})}
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Observado">Observado</option>
+                  <option value="En Inspeccion">En Inspeccion</option>
+                  <option value="Subsanacion">Subsanacion</option>
+                  <option value="Aprobado">Aprobado</option>
+                  <option value="Rechazado">Rechazado</option>
+                  <option value="Vencido">Vencido</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Ingreso (Creación)</label>
+                <input 
+                  type="date" 
+                  value={datosDemo.created_at} 
+                  onChange={(e) => setDatosDemo({...datosDemo, created_at: e.target.value})}
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Vencimiento (Solo Aprobados)</label>
+                <input 
+                  type="date" 
+                  value={datosDemo.fecha_vencimiento} 
+                  onChange={(e) => setDatosDemo({...datosDemo, fecha_vencimiento: e.target.value})}
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t flex justify-end gap-3">
+              <button 
+                onClick={() => setExpedienteEditando(null)} 
+                className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded"
+                disabled={guardandoDemo}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={async () => {
+                  setGuardandoDemo(true);
+                  try {
+                    const camposUpdate = {
+                      estado: datosDemo.estado,
+                      created_at: datosDemo.created_at ? new Date(datosDemo.created_at).toISOString() : expedienteEditando.created_at,
+                      fecha_vencimiento: datosDemo.fecha_vencimiento ? new Date(datosDemo.fecha_vencimiento).toISOString() : null,
+                    };
+                    await reportesService.actualizarExpedienteDemo(expedienteEditando.id, camposUpdate);
+                    await cargarTodosExpedientes();
+                    setExpedienteEditando(null);
+                  } catch (error) {
+                    alert('Error guardando en modo demo: ' + error.message);
+                  } finally {
+                    setGuardandoDemo(false);
+                  }
+                }} 
+                disabled={guardandoDemo}
+                className="px-4 py-2 bg-purple-600 text-white font-bold rounded hover:bg-purple-700 flex items-center gap-2"
+              >
+                {guardandoDemo ? 'Guardando...' : <><Save className="w-4 h-4"/> Forzar Cambios</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

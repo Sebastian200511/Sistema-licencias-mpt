@@ -116,6 +116,23 @@ export const reportesService = {
       console.error('Error al obtener expedientes:', error);
       throw error;
     }
+  },
+
+  actualizarExpedienteDemo: async (id, camposUpdate) => {
+    try {
+      const { data, error } = await supabase
+        .from('expedientes')
+        .update(camposUpdate)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error en Modo Demo (actualizar expediente):', error);
+      throw error;
+    }
   }
 };
 
