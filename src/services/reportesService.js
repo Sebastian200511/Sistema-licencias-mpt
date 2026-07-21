@@ -45,12 +45,16 @@ export const reportesService = {
         const monto = parseFloat(exp.monto_pagado) || 0;
         const metodo = exp.metodo_pago || 'Efectivo'; // Fallback por si acaso
 
-        totalGeneral += monto;
-        if (metodo === 'Yape') totalYape += monto;
-        else if (metodo === 'Tarjeta') totalTarjeta += monto;
-        else totalEfectivo += monto;
-
         const cId = exp.cajero_id;
+
+        totalGeneral += monto;
+        if (!cId) {
+          totalTarjeta += monto; // Considerar virtuales en tarjeta/virtual total
+        } else {
+          if (metodo === 'Yape') totalYape += monto;
+          else if (metodo === 'Tarjeta') totalTarjeta += monto;
+          else totalEfectivo += monto;
+        }
         
         if (!cId) {
           // Pago Virtual (Mercado Pago)

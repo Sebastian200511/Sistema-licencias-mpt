@@ -148,13 +148,10 @@ export default function Seguimiento() {
       <main className="max-w-3xl mx-auto mt-8 p-4">
         <div className="bg-white p-6 rounded-xl shadow-md mb-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Search className="text-blue-700" /> {modoRecuperacion ? 'Recuperar Código Perdido' : 'Consultar Estado de Expediente'}
+            <Search className="text-blue-700" /> Consultar Estado de Expediente
           </h2>
 
-          {!modoRecuperacion ? (
-            // --- MODO NORMAL: BUSCAR CON RUC Y CÓDIGO ---
-            <>
-              <form onSubmit={handleBuscar} className="flex flex-col md:flex-row gap-4">
+          <form onSubmit={handleBuscar} className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">RUC de la Empresa</label>
                   <input type="text" maxLength={11} required value={formData.ruc} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 11) setFormData({...formData, ruc: val}); }} className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-900" placeholder="11 dígitos" />
@@ -168,42 +165,7 @@ export default function Seguimiento() {
                     {loading ? 'Buscando...' : 'Buscar'}
                   </button>
                 </div>
-              </form>
-              <div className="mt-4 text-right">
-                <button type="button" onClick={() => { setModoRecuperacion(true); setError(''); setTramite(null); }} className="text-sm text-blue-600 hover:text-blue-800 font-semibold hover:underline">
-                  ¿Olvidó su código de expediente?
-                </button>
-              </div>
-            </>
-          ) : (
-            // --- MODO RECUPERACIÓN: SOLO PIDE RUC ---
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-              <p className="text-sm text-slate-600 mb-4">Ingrese el RUC de su negocio. El sistema buscará su código de trámite más reciente.</p>
-              <form onSubmit={handleRecuperarCodigo} className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <input type="text" maxLength={11} required value={formData.ruc} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 11) setFormData({...formData, ruc: val}); }} className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-900" placeholder="Ingrese su RUC (11 dígitos)" />
-                </div>
-                <div className="flex items-end">
-                  <button disabled={loadingRecuperacion} type="submit" className="w-full md:w-auto bg-slate-800 text-white font-bold py-2 px-6 rounded hover:bg-slate-900 transition">
-                    {loadingRecuperacion ? 'Buscando...' : 'Recuperar Código'}
-                  </button>
-                </div>
-              </form>
-              
-              {codigoRecuperado && (
-                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                  <p className="text-sm text-green-800 font-semibold mb-1">Su código de expediente es:</p>
-                  <p className="text-2xl font-mono font-bold text-green-900 tracking-wider select-all">{codigoRecuperado}</p>
-                </div>
-              )}
-
-              <div className="mt-4 text-left">
-                <button type="button" onClick={() => { setModoRecuperacion(false); setCodigoRecuperado(null); setError(''); }} className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline">
-                  <ArrowLeft className="w-4 h-4" /> Volver a la consulta normal
-                </button>
-              </div>
-            </div>
-          )}
+          </form>
 
           {error && <div className="mt-4 bg-red-100 text-red-700 p-3 rounded text-sm font-semibold">{error}</div>}
         </div>

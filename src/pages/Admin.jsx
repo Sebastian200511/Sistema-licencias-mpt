@@ -25,7 +25,7 @@ export default function Admin() {
   // Estados del Modo Demo
   const [modoDemo, setModoDemo] = useState(false);
   const [expedienteEditando, setExpedienteEditando] = useState(null);
-  const [datosDemo, setDatosDemo] = useState({ estado: '', fecha_vencimiento: '', created_at: '' });
+  const [datosDemo, setDatosDemo] = useState({ estado: '', fecha_vencimiento: '', created_at: '', mensaje: '' });
   const [guardandoDemo, setGuardandoDemo] = useState(false);
 
   // Formulario nuevo usuario (Solo crea el perfil si el auth.user ya existe, 
@@ -91,10 +91,28 @@ export default function Admin() {
     }
   }, [tabActual]);
 
-  const toggleActivo = async (id, estadoActual) => {
+  const toggleActivo = async (id, estadoActual, rol) => {
     setError('');
     setMensajeExito('');
     try {
+      if (estadoActual) { // Intento de dar de baja
+        if (rol === 'Cajero') {
+          const { data: sesiones } = await supabase
+            .from('caja_sesiones')
+            .select('id')
+            .eq('cajero_id', id)
+            .is('hora_cierre', null);
+          if (sesiones && sesiones.length > 0) throw new Error('No se puede dar de baja a un cajero con una caja abierta.');
+        } else if (rol === 'Inspector') {
+          const { data: tramites } = await supabase
+            .from('expedientes')
+            .select('id')
+            .eq('inspector_id', id)
+            .in('estado', ['Pendiente', 'Observado', 'En Inspeccion', 'Subsanacion']);
+          if (tramites && tramites.length > 0) throw new Error('No se puede dar de baja a un inspector con trámites en curso.');
+        }
+      }
+
       const { error } = await supabase
         .from('usuarios_internos')
         .update({ activo: !estadoActual })
@@ -205,7 +223,6 @@ export default function Admin() {
                   >
                     <option value="Cajero">Cajero (Ventanilla Presencial)</option>
                     <option value="Inspector">Inspector (Trabajo de Campo)</option>
-                    <option value="Admin">Administrador (TI)</option>
                   </select>
                 </div>
                 <Button type="submit" isLoading={loading} className="w-full mt-4">Registrar Usuario</Button>
@@ -245,7 +262,7 @@ export default function Admin() {
                         <td className="p-3 text-center">
                           {u.rol !== 'Admin' && (
                             <button 
-                              onClick={() => toggleActivo(u.id, u.activo)}
+                              onClick={() => toggleActivo(u.id, u.activo, u.rol)}
                               className={`text-xs px-3 py-1 rounded font-bold transition-colors ${u.activo ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
                             >
                               {u.activo ? 'Dar de Baja' : 'Reactivar'}
@@ -455,7 +472,18 @@ export default function Admin() {
                 <label className="block text-sm font-bold text-slate-700 mb-1">Estado</label>
                 <select 
                   value={datosDemo.estado} 
-                  onChange={(e) => setDatosDemo({...datosDemo, estado: e.target.value})}
+                  onChange={(e) => {
+                    const nuevoEstado = e.target.value;
+                    let nuevaFechaVenc = datosDemo.fecha_vencimiento;
+                    
+                    if (nuevoEstado === 'Vencido' || nuevoEstado === 'Aprobado') {
+                       const baseDate = datosDemo.created_at ? new Date(`${datosDemo.created_at}T12:00:00Z`) : new Date();
+                       baseDate.setFullYear(baseDate.getFullYear() + 1);
+                       if (nuevoEstado === 'Vencido') baseDate.setFullYear(baseDate.getFullYear() - 1); // If vencido, it could have expired already
+                       nuevaFechaVenc = baseDate.toISOString().split('T')[0];
+                    }
+                    setDatosDemo({...datosDemo, estado: nuevoEstado, fecha_vencimiento: nuevaFechaVenc});
+                  }}
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
                 >
                   <option value="Pendiente">Pendiente</option>
@@ -473,7 +501,19 @@ export default function Admin() {
                 <input 
                   type="date" 
                   value={datosDemo.created_at} 
-                  onChange={(e) => setDatosDemo({...datosDemo, created_at: e.target.value})}
+                  onChange={(e) => {
+                    const fIngreso = e.target.value;
+                    let nuevaFechaVenc = datosDemo.fecha_vencimiento;
+                    if (datosDemo.estado === 'Vencido' || datosDemo.estado === 'Aprobado') {
+                       const d = new Date(`${fIngreso}T12:00:00Z`);
+                       d.setFullYear(d.getFullYear() + 1);
+                       if (datosDemo.estado === 'Vencido') {
+                         d.setFullYear(d.getFullYear() - 2); // Force past date
+                       }
+                       nuevaFechaVenc = d.toISOString().split('T')[0];
+                    }
+                    setDatosDemo({...datosDemo, created_at: fIngreso, fecha_vencimiento: nuevaFechaVenc});
+                  }}
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
                 />
               </div>
@@ -487,6 +527,18 @@ export default function Admin() {
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
                 />
               </div>
+              {datosDemo.estado === 'Observado' && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Mensaje de Observación (Para el correo)</label>
+                  <textarea 
+                    value={datosDemo.mensaje} 
+                    onChange={(e) => setDatosDemo({...datosDemo, mensaje: e.target.value})}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none resize-none"
+                    rows="3"
+                    placeholder="Escribe el motivo de la observación que le llegará al usuario..."
+                  />
+                </div>
+              )}
             </div>
 
             <div className="p-4 bg-slate-50 border-t flex justify-end gap-3">
@@ -517,7 +569,7 @@ export default function Admin() {
                             codigo: expData.codigo,
                             razonSocial: expData.empresas.razon_social,
                             fechaVisita: camposUpdate.fecha_vencimiento || new Date().toISOString(),
-                            observaciones: 'Actualización administrativa (Demostración)',
+                            observaciones: datosDemo.estado === 'Observado' && datosDemo.mensaje ? datosDemo.mensaje : 'Actualización administrativa (Demostración)',
                             tipoNotificacion: datosDemo.estado === 'Aprobado' ? 'aprobacion' : 'observacion'
                           });
                         } catch (err) {
