@@ -47,6 +47,14 @@ export default function Login() {
         return; 
       }
 
+      // Validar que no tenga tramite activo o licencia vigente antes de continuar
+      const verificacion = await expedientesService.verificarTramiteActivo(data.ruc || ruc);
+      if (verificacion.tieneTramite) {
+        setError(verificacion.mensaje);
+        setBuscandoSunat(false);
+        return;
+      }
+
       const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
 
       setEmpresaValidada({
@@ -63,6 +71,7 @@ export default function Login() {
         const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
         if (aprobada) setLicenciaPrevia(aprobada); 
       }
+
     } catch (err) {
       setError(err.message || 'Error al validar el RUC.');
     } finally {
@@ -150,6 +159,7 @@ export default function Login() {
                 maxLength={11}
                 value={ruc} 
                 onChange={(e) => {
+                  setError('');
                   const valorSoloNumeros = e.target.value.replace(/\D/g, '');
                   if (valorSoloNumeros.length <= 11) {
                     setRuc(valorSoloNumeros);

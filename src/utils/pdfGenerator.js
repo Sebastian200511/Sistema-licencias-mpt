@@ -46,7 +46,7 @@ export const pdfGenerator = {
     doc.text("DATOS DE LA LICENCIA", 20, 135);
     
     doc.setFont("helvetica", "normal");
-    doc.text(`Estado del Trámite: APROBADO Y VIGENTE`, 20, 150);
+    doc.text(`Estado del Trámite: ${estaVencida ? 'VENCIDO' : 'APROBADO Y VIGENTE'}`, 20, 150);
     doc.text(`Válido hasta: ${fechaVencimiento.toLocaleDateString()}`, 20, 160);
 
     doc.setLineWidth(0.5);

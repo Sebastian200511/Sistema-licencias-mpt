@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 import { supabase } from '../supabaseClient';
 import { authService } from '../services/authService';
 import { reportesService } from '../services/reportesService';
+import { expedientesService } from '../services/expedientesService';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import InputField from '../components/InputField';
@@ -14,7 +15,7 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   
-  const [tabActual, setTabActual] = useState('directorio'); // 'directorio' | 'reportes' | 'expedientes'
+  const [tabActual, setTabActual] = useState(() => localStorage.getItem('adminTab') || 'directorio');
   const [reporteFinanciero, setReporteFinanciero] = useState(null);
   
   // Expedientes State
@@ -73,12 +74,20 @@ export default function Admin() {
   };
 
   useEffect(() => {
+    localStorage.setItem('adminTab', tabActual);
     if (tabActual === 'directorio') {
       cargarUsuarios();
     } else if (tabActual === 'reportes') {
       cargarReportes();
     } else if (tabActual === 'expedientes') {
       cargarExpedientes();
+      const channel = supabase
+        .channel('admin-expedientes-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expedientes' }, () => {
+          cargarExpedientes();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
     }
   }, [tabActual]);
 
@@ -494,10 +503,29 @@ export default function Admin() {
                   try {
                     const camposUpdate = {
                       estado: datosDemo.estado,
-                      created_at: datosDemo.created_at ? new Date(datosDemo.created_at).toISOString() : expedienteEditando.created_at,
-                      fecha_vencimiento: datosDemo.fecha_vencimiento ? new Date(datosDemo.fecha_vencimiento).toISOString() : null,
+                      created_at: datosDemo.created_at ? new Date(`${datosDemo.created_at}T12:00:00Z`).toISOString() : expedienteEditando.created_at,
+                      fecha_vencimiento: datosDemo.fecha_vencimiento ? new Date(`${datosDemo.fecha_vencimiento}T12:00:00Z`).toISOString() : null,
                     };
                     await reportesService.actualizarExpedienteDemo(expedienteEditando.id, camposUpdate);
+                    
+                    if (datosDemo.estado === 'Aprobado' || datosDemo.estado === 'Observado') {
+                      const expData = expedientes.find(e => e.id === expedienteEditando.id);
+                      if (expData?.empresas?.email_contacto) {
+                        try {
+                          await expedientesService.enviarCorreoNotificacion({
+                            email: expData.empresas.email_contacto,
+                            codigo: expData.codigo,
+                            razonSocial: expData.empresas.razon_social,
+                            fechaVisita: camposUpdate.fecha_vencimiento || new Date().toISOString(),
+                            observaciones: 'Actualización administrativa (Demostración)',
+                            tipoNotificacion: datosDemo.estado === 'Aprobado' ? 'aprobacion' : 'observacion'
+                          });
+                        } catch (err) {
+                          console.error("Error enviando correo en demo:", err);
+                        }
+                      }
+                    }
+
                     await cargarExpedientes();
                     setExpedienteEditando(null);
                   } catch (error) {

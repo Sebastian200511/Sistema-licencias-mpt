@@ -169,6 +169,14 @@ export default function Cajero() {
         return;
       }
 
+      // Validar que no tenga tramite activo o licencia vigente antes de continuar
+      const verificacion = await expedientesService.verificarTramiteActivo(data.ruc || ruc);
+      if (verificacion.tieneTramite) {
+        setError(verificacion.mensaje);
+        setBuscandoSunat(false);
+        return;
+      }
+
       const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
 
       setEmpresaValidada({
@@ -486,7 +494,10 @@ export default function Cajero() {
             <form onSubmit={handleConsultarRUC} className="mb-6 flex gap-3">
               <input 
                 type="text" maxLength={11} required value={ruc} 
-                onChange={(e) => setRuc(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => {
+                  setError('');
+                  setRuc(e.target.value.replace(/\D/g, ''));
+                }}
                 disabled={empresaValidada !== null || buscandoSunat}
                 className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-600 outline-none disabled:bg-slate-100"
                 placeholder="RUC del ciudadano"

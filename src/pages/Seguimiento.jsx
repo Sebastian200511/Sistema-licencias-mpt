@@ -283,9 +283,9 @@ export default function Seguimiento() {
                 </div>
               )}
               
-              {tramite.estado === 'Aprobado' && (
+              {(tramite.estado === 'Aprobado' || tramite.estado === 'Vencido') && (
                 <div className="mt-6 w-full flex flex-col items-center">
-                  {(tramite.fecha_vencimiento && new Date() > new Date(`${tramite.fecha_vencimiento}T23:59:59`)) && (
+                  {(tramite.estado === 'Vencido' || (tramite.fecha_vencimiento && new Date() > new Date(`${tramite.fecha_vencimiento}T23:59:59`))) && (
                     <div className="w-full bg-red-100 text-red-800 p-4 rounded-lg mb-4 text-sm font-bold border border-red-200 text-center">
                       ⚠️ Esta licencia ha expirado. Su PDF se generará con marca de agua "VENCIDA". Le invitamos a realizar su trámite de renovación.
                     </div>
