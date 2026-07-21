@@ -147,20 +147,27 @@ export const expedientesService = {
     if (error) throw new Error('Error al programar la inspección.');
   },
 
-  obtenerInspeccionesDeHoy: async () => {
-    const hoyStr = new Date().toISOString().split('T')[0];
+  obtenerInspeccionesPendientes: async () => {
     const { data, error } = await supabase
       .from('expedientes')
       .select(`
         *, 
         empresas(ruc, razon_social, domicilio_fiscal, email_contacto),
-        inspecciones!inner(fecha_programada, estado)
+        inspecciones!inner(id, fecha_programada, estado)
       `)
-      .eq('inspecciones.fecha_programada', hoyStr)
+      .eq('estado', 'En Inspeccion')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error('Error al cargar trámites: ' + error.message);
     return data;
+  },
+
+  actualizarFechaInspeccion: async (inspeccionId, nuevaFecha) => {
+    const { error } = await supabase
+      .from('inspecciones')
+      .update({ fecha_programada: nuevaFecha })
+      .eq('id', inspeccionId);
+    if (error) throw new Error('Error al reprogramar inspección: ' + error.message);
   },
 
   actualizarEstadoExpediente: async (expedienteId, nuevoEstado) => {

@@ -393,13 +393,28 @@ export default function Cajero() {
                 </div>
                 
                 <div className="text-left mb-4">
-                  <label className="text-sm font-bold text-slate-700 block mb-1">Efectivo Recibido</label>
-                  <input 
-                    type="number" step="0.01" min={TARIFA} required 
-                    value={efectivoRecibido} 
-                    onChange={e => setEfectivoRecibido(e.target.value)}
-                    className="w-full p-3 border border-slate-300 rounded-lg text-xl font-bold"
-                  />
+                  <label className="text-sm font-bold text-slate-700 block mb-3 text-center">Seleccione el Efectivo Recibido</label>
+                  
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {[5, 10, 20, 50, 100].map(billete => (
+                      <button
+                        key={billete}
+                        type="button"
+                        disabled={billete < TARIFA}
+                        onClick={() => setEfectivoRecibido(billete.toString())}
+                        className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === billete ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                      >
+                        S/ {billete}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setEfectivoRecibido(TARIFA.toString())}
+                      className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === TARIFA ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
+                    >
+                      Exacto
+                    </button>
+                  </div>
                 </div>
 
                 {efectivoRecibido && Number(efectivoRecibido) >= TARIFA && (
@@ -521,7 +536,7 @@ export default function Cajero() {
                     <FileText className="mx-auto text-slate-400 w-10 h-10 mb-2" />
                     <label className="cursor-pointer">
                       <span className="bg-teal-100 text-teal-800 px-4 py-2 rounded font-bold text-sm hover:bg-teal-200 transition">Subir PDF del Plano</span>
-                      <input type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
+                      <input key={fileObject ? fileObject.name : 'empty'} type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
                     </label>
                     {planoSeleccionado && <p className="mt-3 text-sm text-teal-700 font-bold">✓ {planoSeleccionado}</p>}
                   </div>

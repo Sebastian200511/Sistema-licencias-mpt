@@ -234,12 +234,14 @@ export default function Admin() {
                           }
                         </td>
                         <td className="p-3 text-center">
-                          <button 
-                            onClick={() => toggleActivo(u.id, u.activo)}
-                            className={`text-xs px-3 py-1 rounded font-bold transition-colors ${u.activo ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
-                          >
-                            {u.activo ? 'Dar de Baja' : 'Reactivar'}
-                          </button>
+                          {u.rol !== 'Admin' && (
+                            <button 
+                              onClick={() => toggleActivo(u.id, u.activo)}
+                              className={`text-xs px-3 py-1 rounded font-bold transition-colors ${u.activo ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                            >
+                              {u.activo ? 'Dar de Baja' : 'Reactivar'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -496,7 +498,7 @@ export default function Admin() {
                       fecha_vencimiento: datosDemo.fecha_vencimiento ? new Date(datosDemo.fecha_vencimiento).toISOString() : null,
                     };
                     await reportesService.actualizarExpedienteDemo(expedienteEditando.id, camposUpdate);
-                    await cargarTodosExpedientes();
+                    await cargarExpedientes();
                     setExpedienteEditando(null);
                   } catch (error) {
                     alert('Error guardando en modo demo: ' + error.message);
