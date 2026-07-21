@@ -42,6 +42,14 @@ serve(async (req) => {
               <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 16px;"><strong>Importe Total:</strong> S/ 3.00</p>
               <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 16px;"><strong>Concepto:</strong> Tasa Administrativa</p>
             </div>
+            
+            ${fechaVisita ? `
+            <div style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 15px; margin: 25px 0;">
+              <p style="margin: 0; color: #9a3412; font-weight: bold; font-size: 14px;">FECHA PROGRAMADA DE INSPECCIÓN TÉCNICA</p>
+              <p style="margin: 5px 0 0 0; color: #c2410c; font-size: 18px; font-weight: bold;">${fechaVisita}</p>
+              <p style="margin: 5px 0 0 0; font-size: 14px; color: #9a3412;">Por favor asegúrese de estar presente en su local comercial en esta fecha.</p>
+            </div>
+            ` : ''}
 
             <p style="color: #475569; font-size: 14px; line-height: 1.5;"><em>* El comprobante oficial PDF le fue entregado en ventanilla por nuestro cajero. Si desea una copia digital, ingrese al portal de la MPT con su clave SOL.</em></p>
           </div>

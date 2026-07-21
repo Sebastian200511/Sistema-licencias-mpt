@@ -1,5 +1,36 @@
 import jsPDF from 'jspdf';
 
+const UNIDADES = ['', 'UN ', 'DOS ', 'TRES ', 'CUATRO ', 'CINCO ', 'SEIS ', 'SIETE ', 'OCHO ', 'NUEVE ', 'DIEZ ', 'ONCE ', 'DOCE ', 'TRECE ', 'CATORCE ', 'QUINCE ', 'DIECISEIS ', 'DIECISIETE ', 'DIECIOCHO ', 'DIECINUEVE ', 'VEINTE '];
+const DECENAS = ['VENTI', 'TREINTA ', 'CUARENTA ', 'CINCUENTA ', 'SESENTA ', 'SETENTA ', 'OCHENTA ', 'NOVENTA '];
+const CENTENAS = ['CIENTO ', 'DOSCIENTOS ', 'TRESCIENTOS ', 'CUATROCIENTOS ', 'QUINIENTOS ', 'SEISCIENTOS ', 'SETECIENTOS ', 'OCHOCIENTOS ', 'NOVECIENTOS '];
+
+function numeroALetras(numero) {
+  if (numero === 0) return 'CERO ';
+  if (numero === 100) return 'CIEN ';
+  let letras = '';
+  if (numero >= 100) {
+    letras += CENTENAS[Math.floor(numero / 100) - 1];
+    numero = numero % 100;
+  }
+  if (numero > 20 && numero < 30) {
+    letras += DECENAS[0] + UNIDADES[numero % 10];
+    numero = 0;
+  } else if (numero >= 30) {
+    letras += DECENAS[Math.floor(numero / 10) - 2];
+    if (numero % 10 > 0) letras += 'Y ' + UNIDADES[numero % 10];
+    numero = 0;
+  } else if (numero > 0) {
+    letras += UNIDADES[numero];
+  }
+  return letras.trim();
+}
+
+function montoALetras(monto) {
+  const entero = Math.floor(monto);
+  const decimales = Math.round((monto - entero) * 100);
+  return `${numeroALetras(entero)} Y ${decimales.toString().padStart(2, '0')}/100`;
+}
+
 export const pdfGenerator = {
   generarLicencia: (tramite) => {
     const doc = new jsPDF();
@@ -124,110 +155,260 @@ export const pdfGenerator = {
     const isFactura = tipoComprobante === 'Factura';
     const tituloDoc = isFactura ? 'FACTURA ELECTRÓNICA' : 'BOLETA DE VENTA ELECTRÓNICA';
     const numComprobante = isFactura ? `E001-${Math.floor(Math.random() * 9000) + 1000}` : `EB01-${Math.floor(Math.random() * 9000) + 1000}`;
-    const rucEmisor = "20146046754"; // RUC MPT (Ejemplo)
-
+    const rucEmisor = "20175639391";
+    
+    doc.setFont("helvetica");
+    
     // RECUADRO SUPERIOR DERECHO (RUC Y TIPO DOC)
-    doc.setLineWidth(0.5);
-    doc.rect(130, 15, 65, 30);
+    doc.setLineWidth(0.3);
+    doc.rect(130, 10, 70, 25);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(`RUC: ${rucEmisor}`, 162.5, 22, { align: "center" });
-    doc.text(tituloDoc, 162.5, 30, { align: "center" });
-    doc.text(numComprobante, 162.5, 38, { align: "center" });
+    doc.text(tituloDoc, 165, 17, { align: "center" });
+    doc.text(`RUC: ${rucEmisor}`, 165, 24, { align: "center" });
+    doc.text(numComprobante, 165, 31, { align: "center" });
 
     // DATOS EMISOR (IZQUIERDA)
-    doc.setFontSize(12);
-    doc.text("MUNICIPALIDAD PROVINCIAL DE TRUJILLO", 15, 20);
-    doc.setFontSize(9);
+    doc.setFontSize(10);
+    doc.text("MUNICIPALIDAD PROVINCIAL DE TRUJILLO", 10, 15);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("ALMAGRO NRO. 257 (PLAZA DE ARMAS)", 15, 26);
-    doc.text("TRUJILLO - TRUJILLO - LA LIBERTAD", 15, 31);
+    doc.text("JR. ALMAGRO NRO. 525 LA LIBERTAD", 10, 20);
+    doc.text("TRUJILLO - TRUJILLO", 10, 25);
+
+    doc.line(10, 38, 200, 38);
 
     // DATOS CLIENTE
-    const fechaActual = new Date().toLocaleDateString();
-    doc.line(15, 50, 195, 50);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("Fecha de Emisión", 15, 60);
-    doc.text(": " + fechaActual, 50, 60);
-    doc.text("Señor(es)", 15, 67);
-    doc.text(": " + (empresa.razonSocial || empresa.razon_social).toUpperCase(), 50, 67);
-    doc.text("RUC", 15, 74);
-    doc.text(": " + empresa.ruc, 50, 74);
-    doc.text("Dirección del Cliente", 15, 81);
-    doc.text(": " + (empresa.domicilio_fiscal || 'NO ESPECIFICADO').toUpperCase(), 50, 81);
-    doc.text("Tipo de Moneda", 15, 88);
-    doc.text(": SOLES", 50, 88);
-
-    doc.line(15, 95, 195, 95);
-
-    // CABECERA TABLA
-    doc.setFont("helvetica", "bold");
-    doc.text("Cantidad", 15, 102);
-    doc.text("Unidad", 35, 102);
-    doc.text("Descripción", 55, 102);
-    doc.text("V. Unitario", 140, 102, { align: "right" });
-    doc.text("Importe Total", 195, 102, { align: "right" });
-
-    doc.line(15, 105, 195, 105);
-
-    // CONTENIDO TABLA
-    doc.setFont("helvetica", "normal");
-    doc.text("1.00", 25, 115, { align: "right" });
-    doc.text("UNIDAD", 35, 115);
-    const desc = doc.splitTextToSize(`Tasa por Derecho de Trámite - Licencia (Exp. ${tramite.codigo || 'N/A'})`, 80);
-    doc.text(desc, 55, 115);
+    const fechaActual = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    doc.setFontSize(8);
+    
+    doc.text("Fecha de Vencimiento", 10, 44);
+    doc.text(":", 40, 44);
+    
+    doc.text("Fecha de Emisión", 10, 49);
+    doc.text(`: ${fechaActual}`, 40, 49);
+    
+    doc.text("Señor(es)", 10, 54);
+    
+    const razonSocial = (empresa.razonSocial || empresa.razon_social || '').toUpperCase();
+    const splitRazon = doc.splitTextToSize(`: ${razonSocial}`, 150);
+    doc.text(splitRazon, 40, 54);
+    
+    let yOffset = 54 + (splitRazon.length * 4);
+    
+    if (isFactura) {
+      doc.text("RUC", 10, yOffset);
+      doc.text(`: ${empresa.ruc || ''}`, 40, yOffset);
+      yOffset += 5;
+      
+      doc.text("Dirección del Cliente", 10, yOffset);
+      const dirSplit = doc.splitTextToSize(`: ${(empresa.domicilio_fiscal || 'NO ESPECIFICADA').toUpperCase()}`, 150);
+      doc.text(dirSplit, 40, yOffset);
+      yOffset += (dirSplit.length * 4);
+    }
+    
+    doc.text("Tipo de Moneda", 10, yOffset);
+    doc.text(": SOLES", 40, yOffset);
+    yOffset += 5;
+    
+    doc.text("Observación", 10, yOffset);
+    doc.text(":", 40, yOffset);
+    yOffset += 7;
 
     // CALCULOS
-    // Asumiendo que el monto ya incluye IGV. Monto = Subtotal + IGV -> Subtotal = Monto / 1.18
-    const montoTotal = parseFloat(monto);
+    const montoTotal = parseFloat(monto) || 3.00;
     const subTotal = montoTotal / 1.18;
     const igv = montoTotal - subTotal;
-
-    doc.text(subTotal.toFixed(2), 140, 115, { align: "right" });
-    doc.text(subTotal.toFixed(2), 195, 115, { align: "right" });
-
-    doc.line(15, 130, 195, 130);
-
-    // TOTALES MOLD (PARTE INFERIOR DERECHA)
-    doc.rect(130, 135, 65, 30);
+    
+    // TABLA
     doc.setFont("helvetica", "bold");
-    doc.text("Op. Gravada :", 135, 142);
-    doc.text("S/", 170, 142);
-    doc.text(subTotal.toFixed(2), 190, 142, { align: "right" });
+    if (!isFactura) {
+      // BOLETA HEADERS
+      doc.text("Cantidad", 10, yOffset + 5);
+      doc.text("Unidad", 28, yOffset + 3);
+      doc.text("Medida", 28, yOffset + 7);
+      doc.text("Descripción", 48, yOffset + 5);
+      doc.text("Valor", 125, yOffset + 3);
+      doc.text("Unitario(*)", 125, yOffset + 7);
+      doc.text("Descuento(*)", 148, yOffset + 5);
+      doc.text("Importe de", 172, yOffset + 3);
+      doc.text("Venta(**)", 172, yOffset + 7);
+      doc.text("ICBPER", 190, yOffset + 5);
+      
+      yOffset += 12;
+      doc.setFont("helvetica", "normal");
+      doc.text("1.00", 22, yOffset, { align: "right" });
+      doc.text("UNIDAD", 28, yOffset);
+      const desc = doc.splitTextToSize(`TASA POR DERECHO DE TRÁMITE - LICENCIA (EXP. ${tramite.codigo || 'N/A'})`, 70);
+      doc.text(desc, 48, yOffset);
+      doc.text(subTotal.toFixed(2), 140, yOffset, { align: "right" });
+      doc.text("0.00", 165, yOffset, { align: "right" });
+      doc.text(montoTotal.toFixed(2), 185, yOffset, { align: "right" });
+      doc.text("0.00", 200, yOffset, { align: "right" });
+      
+      yOffset += (desc.length * 4) + 10;
+      
+      doc.text("Otros Cargos :", 145, yOffset, { align: "right" });
+      doc.text("S/ 0.00", 200, yOffset, { align: "right" });
+      yOffset += 5;
+      doc.text("Otros", 145, yOffset, { align: "right" });
+      yOffset += 4;
+      doc.text("Tributos :", 145, yOffset, { align: "right" });
+      doc.text("S/ 0.00", 200, yOffset - 2, { align: "right" });
+      yOffset += 4;
+      
+      doc.text("ICBPER :", 145, yOffset, { align: "right" });
+      doc.rect(147, yOffset - 3, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset, { align: "right" });
+      yOffset += 5;
+      
+      doc.text("Importe Total :", 145, yOffset, { align: "right" });
+      doc.text(`S/ ${montoTotal.toFixed(2)}`, 200, yOffset, { align: "right" });
+      yOffset += 4;
+
+      doc.line(10, yOffset, 200, yOffset);
+      yOffset += 6;
+
+      doc.setFont("helvetica", "bold");
+      const montoLetras = montoALetras(montoTotal);
+      doc.text(`SON: ${montoLetras} SOLES`, 200, yOffset, { align: "right" });
+      
+      doc.setFont("helvetica", "normal");
+      doc.text("(*) Sin impuestos.", 10, yOffset + 5);
+      doc.text("(**) Incluye impuestos, de ser Op. Gravada.", 10, yOffset + 10);
+      
+      doc.text("Op. Gravada :", 145, yOffset + 6, { align: "right" });
+      doc.rect(147, yOffset + 3, 54, 4);
+      doc.text(`S/ ${subTotal.toFixed(2)}`, 200, yOffset + 6, { align: "right" });
+      
+      doc.text("Op. Exonerada :", 145, yOffset + 11, { align: "right" });
+      doc.rect(147, yOffset + 8, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset + 11, { align: "right" });
+      
+      doc.text("Op. Inafecta :", 145, yOffset + 16, { align: "right" });
+      doc.rect(147, yOffset + 13, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset + 16, { align: "right" });
+      
+      doc.text("ISC :", 145, yOffset + 21, { align: "right" });
+      doc.rect(147, yOffset + 18, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset + 21, { align: "right" });
+      
+      doc.text("IGV :", 145, yOffset + 26, { align: "right" });
+      doc.rect(147, yOffset + 23, 54, 4);
+      doc.text(`S/ ${igv.toFixed(2)}`, 200, yOffset + 26, { align: "right" });
+      
+      doc.text("ICBPER :", 145, yOffset + 31, { align: "right" });
+      doc.rect(147, yOffset + 28, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset + 31, { align: "right" });
+      
+      doc.text("Otros Cargos :", 145, yOffset + 36, { align: "right" });
+      doc.rect(147, yOffset + 33, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset + 36, { align: "right" });
+      
+      doc.text("Otros Tributos :", 145, yOffset + 41, { align: "right" });
+      doc.rect(147, yOffset + 38, 54, 4);
+      doc.text("S/ 0.00", 200, yOffset + 41, { align: "right" });
+      
+      doc.text("Importe Total :", 145, yOffset + 46, { align: "right" });
+      doc.rect(147, yOffset + 43, 54, 4);
+      doc.text(`S/ ${montoTotal.toFixed(2)}`, 200, yOffset + 46, { align: "right" });
+      
+      yOffset += 52;
+      
+    } else {
+      // FACTURA HEADERS
+      doc.text("Cantidad", 10, yOffset + 5);
+      doc.text("Unidad Medida", 25, yOffset + 5);
+      doc.text("Código", 55, yOffset + 5);
+      doc.text("Descripción", 75, yOffset + 5);
+      doc.text("Valor Unitario", 200, yOffset + 5, { align: "right" });
+      
+      doc.setLineWidth(0.3);
+      doc.rect(10, yOffset + 1, 190, 6);
+      
+      yOffset += 12;
+      doc.setFont("helvetica", "normal");
+      doc.text("1.00", 22, yOffset, { align: "right" });
+      doc.text("UNIDAD", 25, yOffset);
+      doc.text("LIC01", 55, yOffset);
+      const desc = doc.splitTextToSize(`TASA POR DERECHO DE TRÁMITE - LICENCIA (EXP. ${tramite.codigo || 'N/A'})`, 100);
+      doc.text(desc, 75, yOffset);
+      doc.text(subTotal.toFixed(2), 200, yOffset, { align: "right" });
+      
+      yOffset += (desc.length * 4) + 15;
+      
+      // Bottom Factura
+      doc.text("Valor de Venta de Operaciones Gratuitas :", 10, yOffset);
+      doc.rect(70, yOffset - 3, 50, 4);
+      doc.text("S/ 0.00", 72, yOffset);
+      
+      // Right Factura Totals
+      doc.text("Sub Total", 145, yOffset - 5, { align: "right" });
+      doc.text("Ventas", 145, yOffset - 1, { align: "right" });
+      doc.text(":", 148, yOffset - 3);
+      doc.rect(150, yOffset - 6, 50, 5);
+      doc.text(`S/ ${subTotal.toFixed(2)}`, 198, yOffset - 3, { align: "right" });
+      
+      yOffset += 4;
+      doc.text("Anticipos :", 148, yOffset, { align: "right" });
+      doc.rect(150, yOffset - 3, 50, 4);
+      doc.text("S/ 0.00", 198, yOffset, { align: "right" });
+      
+      yOffset += 4;
+      doc.text("Descuentos :", 148, yOffset, { align: "right" });
+      doc.rect(150, yOffset - 3, 50, 4);
+      doc.text("S/ 0.00", 198, yOffset, { align: "right" });
+      
+      yOffset += 4;
+      doc.text("Valor Venta :", 148, yOffset, { align: "right" });
+      doc.rect(150, yOffset - 3, 50, 5);
+      doc.text(`S/ ${subTotal.toFixed(2)}`, 198, yOffset, { align: "right" });
+      
+      yOffset += 5;
+      doc.text("ISC :", 148, yOffset, { align: "right" });
+      doc.rect(150, yOffset - 3, 50, 4);
+      doc.text("S/ 0.00", 198, yOffset, { align: "right" });
+      
+      yOffset += 4;
+      doc.text("IGV :", 148, yOffset, { align: "right" });
+      doc.rect(150, yOffset - 3, 50, 4);
+      doc.text(`S/ ${igv.toFixed(2)}`, 198, yOffset, { align: "right" });
+      
+      yOffset += 4;
+      doc.text("Otros Cargos :", 148, yOffset, { align: "right" });
+      doc.rect(150, yOffset - 3, 50, 4);
+      doc.text("S/ 0.00", 198, yOffset, { align: "right" });
+      
+      yOffset += 4;
+      doc.text("Otros", 145, yOffset, { align: "right" });
+      yOffset += 3;
+      doc.text("Tributos", 145, yOffset, { align: "right" });
+      doc.text(":", 148, yOffset - 1);
+      doc.rect(150, yOffset - 6, 50, 6);
+      doc.text("S/ 0.00", 198, yOffset - 1, { align: "right" });
+      
+      yOffset += 6;
+      doc.text("Importe", 145, yOffset, { align: "right" });
+      yOffset += 3;
+      doc.text("Total", 145, yOffset, { align: "right" });
+      doc.text(":", 148, yOffset - 1);
+      doc.rect(150, yOffset - 6, 50, 6);
+      doc.text(`S/ ${montoTotal.toFixed(2)}`, 198, yOffset - 1, { align: "right" });
+      
+      // SON
+      doc.setFont("helvetica", "bold");
+      const montoLetras = montoALetras(montoTotal);
+      doc.text(`SON: ${montoLetras} SOLES`, 10, yOffset - 25);
+      
+      yOffset += 5;
+    }
     
-    doc.text("IGV (18%) :", 135, 152);
-    doc.text("S/", 170, 152);
-    doc.text(igv.toFixed(2), 190, 152, { align: "right" });
-
-    doc.text("Importe Total :", 135, 162);
-    doc.text("S/", 170, 162);
-    doc.text(montoTotal.toFixed(2), 190, 162, { align: "right" });
-
-    // LEYENDA MONTO
-    doc.setFontSize(9);
-    doc.text(`SON: ${montoTotal.toFixed(2)} Y 00/100 SOLES`, 15, 145);
-
-    // CÓDIGO HASH Y QR (SIMULADO)
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const hash = Array.from({length: 28}, () => Math.random().toString(36)[2]).join('').toUpperCase() + "=";
-    doc.text(`Resumen Hash: ${hash}`, 15, 155);
-    
-    // Simular un QR (un recuadro negro)
-    doc.setFillColor(0, 0, 0);
-    doc.rect(15, 160, 20, 20, "F");
-    doc.setFillColor(255, 255, 255);
-    doc.rect(17, 162, 4, 4, "F");
-    doc.rect(29, 162, 4, 4, "F");
-    doc.rect(17, 174, 4, 4, "F");
-
-    // TEXTO FINAL
+    // TEXTO INFERIOR
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
-    doc.rect(40, 168, 145, 12);
-    doc.text(`Esta es una representación impresa de la ${tituloDoc}, generada en el`, 112.5, 173, { align: "center" });
-    doc.text("Sistema de la MPT (SUNAT). Puede verificarla utilizando su clave SOL.", 112.5, 178, { align: "center" });
+    doc.rect(10, yOffset, 190, 8);
+    doc.text(`Esta es una representación impresa de la ${tituloDoc.toLowerCase()}, generada en el Sistema de la SUNAT. El`, 105, yOffset + 3.5, { align: "center" });
+    doc.text("Emisor Electrónico puede verificarla utilizando su clave SOL.", 105, yOffset + 6.5, { align: "center" });
 
     const fileName = isFactura ? `Factura_${empresa.ruc}_${numComprobante}.pdf` : `Boleta_${empresa.ruc}_${numComprobante}.pdf`;
     

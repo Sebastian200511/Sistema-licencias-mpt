@@ -251,7 +251,7 @@ export default function Cajero() {
         empresa_id: empresaDb.id,
         plano_url: planoPublicUrl,
         monto_pagado: TARIFA,
-        estado: esRenovacionExpress ? 'Aprobado' : 'Pendiente',
+        estado: esRenovacionExpress ? 'Aprobado' : 'En Inspeccion',
         modalidad_ingreso: 'Presencial',
         cajero_id: sesionCaja?.cajero_id,
         metodo_pago: metodoPago

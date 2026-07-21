@@ -11,7 +11,9 @@ export default function Inspector() {
   const [tabActual, setTabActual] = useState('pendientes');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
 
 
   const cargarExpedientes = useCallback(async () => {
@@ -125,16 +127,21 @@ export default function Inspector() {
   manana.setDate(manana.getDate() + 1);
   const mananaStr = manana.toISOString().split('T')[0];
 
-  const agrupados = { atrasadas: [], hoy: [], manana: [], futuras: [] };
+  const agrupados = { atrasadas: [], hoy: [], manana: [], futuras: [], filtradas: [] };
   
   if (tabActual === 'pendientes') {
     expedientes.forEach(exp => {
       const f = exp.inspecciones?.[0]?.fecha_programada;
       if (!f) return;
-      if (f < hoyStr) agrupados.atrasadas.push(exp);
-      else if (f === hoyStr) agrupados.hoy.push(exp);
-      else if (f === mananaStr) agrupados.manana.push(exp);
-      else agrupados.futuras.push(exp);
+
+      if (filtroFecha) {
+        if (f === filtroFecha) agrupados.filtradas.push(exp);
+      } else {
+        if (f < hoyStr) agrupados.atrasadas.push(exp);
+        else if (f === hoyStr) agrupados.hoy.push(exp);
+        else if (f === mananaStr) agrupados.manana.push(exp);
+        else agrupados.futuras.push(exp);
+      }
     });
   }
 
@@ -168,7 +175,7 @@ export default function Inspector() {
                         <input 
                           type="date" 
                           defaultValue={inspeccionAsignada.fecha_programada}
-                          onBlur={(e) => {
+                          onChange={(e) => {
                             if (e.target.value !== inspeccionAsignada.fecha_programada) {
                               reprogramarVisita(inspeccionAsignada.id, e.target.value);
                             }
@@ -231,9 +238,25 @@ export default function Inspector() {
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <ListFilter className="text-blue-900 w-6 h-6" /> Bandeja de Inspecciones
           </h2>
-          <Button onClick={cargarExpedientes} isLoading={loading} variant="secondary" className="w-auto px-4 py-2 text-sm bg-white shadow-sm border border-slate-200 text-slate-700 hover:bg-slate-50">
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Actualizar Lista
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="text-sm text-slate-600 font-medium hidden sm:inline">Ver por fecha:</span>
+              <input 
+                type="date" 
+                value={filtroFecha}
+                onChange={(e) => setFiltroFecha(e.target.value)}
+                className="text-sm outline-none bg-transparent cursor-pointer text-slate-700 font-bold"
+              />
+              {filtroFecha && (
+                <button onClick={() => setFiltroFecha('')} className="text-xs text-red-500 hover:underline ml-1 font-bold">Limpiar</button>
+              )}
+            </div>
+
+            <Button onClick={cargarExpedientes} isLoading={loading} variant="secondary" className="w-auto px-4 py-2 text-sm bg-white shadow-sm border border-slate-200 text-slate-700 hover:bg-slate-50">
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Actualizar
+            </Button>
+          </div>
         </div>
 
         <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg mb-6 max-w-sm">
@@ -263,10 +286,18 @@ export default function Inspector() {
             </div>
           ) : (
             <div className="space-y-2">
-              {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
-              {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
-              {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
-              {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
+              {filtroFecha ? (
+                 agrupados.filtradas.length > 0 
+                   ? renderGrupo(`🔎 Resultados para la fecha: ${filtroFecha}`, agrupados.filtradas, "text-blue-800 border-blue-300")
+                   : <div className="bg-white p-8 rounded-xl shadow border border-slate-200 text-center text-slate-500">No hay inspecciones programadas para la fecha seleccionada.</div>
+              ) : (
+                <>
+                  {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
+                  {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
+                  {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
+                  {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
+                </>
+              )}
             </div>
           )
         ) : (
