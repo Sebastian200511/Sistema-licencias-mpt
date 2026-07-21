@@ -350,9 +350,9 @@ export default function Admin() {
                 <tbody className="text-sm">
                   {expedientes
                     .filter(e => 
-                      e.codigo?.toLowerCase().includes(filtroBusqueda.toLowerCase()) || 
-                      e.empresas?.razon_social?.toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
-                      e.empresas?.ruc?.includes(filtroBusqueda)
+                      (e.codigo || '').toLowerCase().includes(filtroBusqueda.toLowerCase()) || 
+                      (e.empresas?.razon_social || '').toLowerCase().includes(filtroBusqueda.toLowerCase()) ||
+                      (e.empresas?.ruc || '').includes(filtroBusqueda)
                     )
                     .map(exp => (
                     <tr key={exp.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">

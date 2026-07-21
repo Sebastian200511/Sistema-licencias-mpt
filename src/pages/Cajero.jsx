@@ -107,8 +107,9 @@ export default function Cajero() {
   const cerrarCaja = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError(''); // Limpiar errores
     try {
-      const totalEsperadoFisico = sesionCaja.monto_inicial + resumenCierre.totalEfectivo;
+      const totalEsperadoFisico = parseFloat(sesionCaja.monto_inicial) + parseFloat(resumenCierre.totalEfectivo);
       const caja = await cajaService.cerrarCaja(sesionCaja.id, totalEsperadoFisico, montoFisicoCierre);
       setSesionCaja(null);
       setCajaCerradaResult({
@@ -177,9 +178,14 @@ export default function Cajero() {
       });
 
       const empresaDb = await expedientesService.obtenerEmpresaPorRuc(data.ruc || ruc);
-      if (empresaDb?.expedientes) {
-        const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
-        if (aprobada) setLicenciaPrevia(aprobada); 
+      if (empresaDb) {
+        if (empresaDb.email_contacto) {
+          setEmailContacto(empresaDb.email_contacto);
+        }
+        if (empresaDb.expedientes) {
+          const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
+          if (aprobada) setLicenciaPrevia(aprobada); 
+        }
       }
     } catch (err) {
       setError(err.message || 'Error de conexión.');
@@ -353,6 +359,7 @@ export default function Cajero() {
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
                 <h3 className="text-xl font-bold mb-4">Cierre de Caja</h3>
+                {error && <Alert type="error" message={error} />}
                 {resumenCierre && (
                   <div className="bg-slate-100 p-3 rounded-lg mb-4 text-sm space-y-1">
                     <p className="flex justify-between"><span>Recaudación Total:</span> <b>S/ {resumenCierre.totalRecaudado.toFixed(2)}</b></p>
@@ -546,9 +553,17 @@ export default function Cajero() {
                     Cancelar
                   </button>
                   <Button 
-                  onClick={() => metodoPago === 'Yape' ? registrarTramitePresencial() : setModalVuelto(true)} 
+                  onClick={() => {
+                    if (!emailContacto || !emailContacto.includes('@')) {
+                      setError('Por favor, ingrese un correo electrónico válido para notificar al ciudadano.');
+                      // Hacer scroll hacia arriba para ver el error
+                      window.scrollTo(0, 0);
+                      return;
+                    }
+                    metodoPago === 'Yape' ? registrarTramitePresencial() : setModalVuelto(true)
+                  }} 
                   isLoading={loading}
-                  disabled={(!esRenovacionExpress && !fileObject) || !empresaValidada.ruc}
+                  disabled={(!esRenovacionExpress && !fileObject) || !empresaValidada?.ruc}
                   variant="primary"
                 >
                   <CheckCircle className="w-5 h-5" /> Completar Pago y Trámite

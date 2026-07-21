@@ -44,7 +44,7 @@ export const expedientesService = {
   obtenerEmpresaPorRuc: async (ruc) => {
     const { data, error } = await supabase
       .from('empresas')
-      .select(`id, expedientes(codigo, estado)`)
+      .select(`id, email_contacto, expedientes(codigo, estado)`)
       .eq('ruc', ruc)
       .maybeSingle();
 

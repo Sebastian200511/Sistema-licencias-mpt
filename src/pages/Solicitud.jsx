@@ -66,34 +66,23 @@ export default function Solicitud() {
 
     }
 
-    // --- MAGIA: RECUPERAR EL PDF DESPUÉS DE RECUPERAR LA PÁGINA ---
-
-    const savedPdfName = sessionStorage.getItem('mpt_saved_pdf_name');
-
-    const savedPdfData = sessionStorage.getItem('mpt_saved_pdf_data');
-
-   
-
-    // Si hay un archivo guardado en memoria y aún no lo hemos cargado en el estado
-
-    if (savedPdfName && savedPdfData && !fileObject) {
-
-      setPlanoSeleccionado(savedPdfName);
-
-      // Reensamblamos el PDF
-
-      fetch(savedPdfData)
-
-        .then(res => res.blob())
-
-        .then(blob => {
-
-          const recoveredFile = new File([blob], savedPdfName, { type: blob.type || 'application/pdf' });
-
-          setFileObject(recoveredFile);
-
-        });
-
+    const hasStatus = urlParams.has('status') || urlParams.has('collection_id');
+    if (hasStatus) {
+      const savedPdfName = sessionStorage.getItem('mpt_saved_pdf_name');
+      const savedPdfData = sessionStorage.getItem('mpt_saved_pdf_data');
+      if (savedPdfName && savedPdfData && !fileObject) {
+        setPlanoSeleccionado(savedPdfName);
+        fetch(savedPdfData)
+          .then(res => res.blob())
+          .then(blob => {
+            const recoveredFile = new File([blob], savedPdfName, { type: blob.type || 'application/pdf' });
+            setFileObject(recoveredFile);
+          });
+      }
+    } else {
+      // Limpiar memoria de solicitud anterior
+      sessionStorage.removeItem('mpt_saved_pdf_name');
+      sessionStorage.removeItem('mpt_saved_pdf_data');
     }
 
 
