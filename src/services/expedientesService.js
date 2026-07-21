@@ -127,7 +127,10 @@ export const expedientesService = {
       .select()
       .single();
 
-    if (error) throw new Error('Error al generar el expediente.');
+    if (error) {
+      console.error('Detalles del error al crear expediente:', error);
+      throw new Error(`Error al generar el expediente: ${error.message}`);
+    }
     return data;
   },
 
