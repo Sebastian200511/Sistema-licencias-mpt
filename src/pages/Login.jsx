@@ -71,6 +71,7 @@ export default function Login() {
         const vencida = empresaDb.expedientes.find(exp => exp?.estado === 'Vencido');
         if (vencida) {
           setError(`El RUC ingresado cuenta con una licencia VENCIDA (Código: ${vencida.codigo}). Por favor, utilice la opción "Consultar el estado de mi trámite" que está arriba para ingresar a su panel y solicitar la Renovación.`);
+          setEmpresaValidada(null);
           setBuscandoSunat(false);
           return;
         }
