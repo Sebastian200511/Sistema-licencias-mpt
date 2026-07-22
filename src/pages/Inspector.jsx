@@ -79,9 +79,20 @@ export default function Inspector() {
       await expedientesService.actualizarEstadoExpediente(expedienteId, nuevoEstado);
 
       if (nuevoEstado === 'Observado') {
-        const fechaFutura = new Date();
-        fechaFutura.setDate(fechaFutura.getDate() + 42);
-        const fechaSegundaVisita = fechaFutura.toISOString().split('T')[0];
+        // Cálculo estricto de 30 días hábiles (Lunes a Viernes)
+        const calcularFechaHabil = (diasPlazo) => {
+          let fecha = new Date();
+          let diasAgregados = 0;
+          while (diasAgregados < diasPlazo) {
+            fecha.setDate(fecha.getDate() + 1);
+            // 0 = Domingo, 6 = Sábado
+            if (fecha.getDay() !== 0 && fecha.getDay() !== 6) {
+              diasAgregados++;
+            }
+          }
+          return fecha.toISOString().split('T')[0];
+        };
+        const fechaSegundaVisita = calcularFechaHabil(30);
         
         await expedientesService.crearInspeccion({
           expediente_id: expedienteId, 
