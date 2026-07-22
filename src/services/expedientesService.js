@@ -153,11 +153,11 @@ export const expedientesService = {
     if (fileObject) {
       const fileName = `${codigoExpediente}_${Date.now()}_plano.pdf`;
       const { error: uploadError } = await supabase.storage
-        .from('documentos')
+        .from('planos')
         .upload(fileName, fileObject, { upsert: true });
 
-      if (uploadError) throw new Error('Error al subir el nuevo plano.');
-      const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(fileName);
+      if (uploadError) throw new Error(`Error al subir el nuevo plano: ${uploadError.message}`);
+      const { data: urlData } = supabase.storage.from('planos').getPublicUrl(fileName);
       planoUrl = urlData.publicUrl;
     }
 
