@@ -35,6 +35,63 @@ export default function Admin() {
   // en un entorno real se usaría una Edge Function con service_role para crear el auth.user)
   const [form, setForm] = useState({ id: '', email: '', password: '', rol: 'Cajero', nombre_completo: '' });
 
+  const handleReenviarCorreo = async (exp) => {
+    if (!exp.empresas?.email_contacto) {
+      alert("La empresa no tiene un correo de contacto registrado.");
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    setMensajeExito('');
+    
+    try {
+      const { email_contacto: email, razon_social: razonSocial } = exp.empresas;
+      const { codigo, estado } = exp;
+      let tipoNotificacion = '';
+      let observaciones = '';
+      let fechaVisita = '';
+      
+      const insps = exp.inspecciones ? [...exp.inspecciones] : [];
+      const ultimaInspeccion = insps.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+
+      if (estado === 'Aprobado') tipoNotificacion = 'aprobado';
+      else if (estado === 'Rechazado' || estado === 'Denegado Definitivo') tipoNotificacion = 'rechazado';
+      else if (estado === 'Vencido') tipoNotificacion = 'vencimiento';
+      else if (estado === 'Observado') {
+        tipoNotificacion = 'observacion';
+        if (ultimaInspeccion) {
+          fechaVisita = ultimaInspeccion.fecha_programada;
+          observaciones = ultimaInspeccion.observaciones || "Observaciones de seguridad registradas por el inspector.";
+        }
+      } else if (estado === 'En Inspeccion') {
+        tipoNotificacion = 'nueva_inspeccion';
+        if (ultimaInspeccion) {
+          fechaVisita = ultimaInspeccion.fecha_programada;
+        }
+      } else {
+        alert("El estado actual (" + estado + ") no tiene un correo automático configurado para reenvío.");
+        setLoading(false);
+        return;
+      }
+
+      await expedientesService.enviarCorreoNotificacion({
+        email,
+        codigo,
+        razonSocial,
+        fechaVisita,
+        observaciones,
+        tipoNotificacion
+      });
+      
+      setMensajeExito(`Correo reenviado exitosamente a ${email}`);
+    } catch (err) {
+      setError("Error al reenviar correo: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cargarUsuarios = async () => {
     setLoading(true);
     try {
@@ -464,6 +521,8 @@ export default function Admin() {
                     <th className="p-3 text-center">Estado</th>
                     <th className="p-3">Inspección</th>
                     <th className="p-3 text-right">Monto (S/)</th>
+                    <th className="p-3 text-center">Acciones</th>
+                    <th className="p-3 text-center">Acciones</th>
                     {modoDemo && <th className="p-3 text-center text-purple-700">Demo</th>}
                   </tr>
                 </thead>
@@ -494,12 +553,23 @@ export default function Admin() {
                       </td>
                       <td className="p-3 text-slate-600 font-bold">
                         {(() => {
-                          const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                          const insps = exp.inspecciones ? [...exp.inspecciones] : [];
+                          const ultimaInspeccion = insps.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
                           return ultimaInspeccion?.fecha_programada || 'N/A';
                         })()}
                       </td>
                       <td className="p-3 text-right font-bold text-slate-700">
                         {Number(exp.monto_pagado).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => handleReenviarCorreo(exp)}
+                          className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition font-bold text-xs flex items-center justify-center gap-1.5 mx-auto"
+                          title="Reenviar Correo al Ciudadano"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z"/><path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10"/></svg>
+                          Reenviar
+                        </button>
                       </td>
                       {modoDemo && (
                         <td className="p-3 text-center">
@@ -511,11 +581,13 @@ export default function Admin() {
                                 created_at: new Date(exp.created_at).toISOString().split('T')[0],
                                 fecha_vencimiento: exp.fecha_vencimiento ? new Date(exp.fecha_vencimiento).toISOString().split('T')[0] : '',
                                 fecha_programada: (() => {
-                                  const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                                  const insps = exp.inspecciones ? [...exp.inspecciones] : [];
+                                  const ultimaInspeccion = insps.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
                                   return ultimaInspeccion?.fecha_programada || '';
                                 })(),
                                 inspeccion_id: (() => {
-                                  const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                                  const insps = exp.inspecciones ? [...exp.inspecciones] : [];
+                                  const ultimaInspeccion = insps.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
                                   return ultimaInspeccion?.id || null;
                                 })()
                               });
@@ -531,7 +603,7 @@ export default function Admin() {
                   ))}
                   {expedientes.length === 0 && (
                     <tr>
-                      <td colSpan={modoDemo ? "7" : "6"} className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
+                      <td colSpan={modoDemo ? "8" : "7"} className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
                     </tr>
                   )}
                 </tbody>

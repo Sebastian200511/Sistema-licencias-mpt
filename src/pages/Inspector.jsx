@@ -157,7 +157,8 @@ export default function Inspector() {
       if (['Aprobado', 'Rechazado', 'Observado', 'Denegado Definitivo'].includes(exp.estado)) return;
       
       // Find the inspection with the latest scheduled date
-      const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+      const insps = exp.inspecciones ? [...exp.inspecciones] : [];
+      const ultimaInspeccion = insps.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
       const f = ultimaInspeccion?.fecha_programada;
       if (!f) return;
 
@@ -324,8 +325,8 @@ export default function Inspector() {
                     (exp.empresas?.razon_social && exp.empresas.razon_social.toLowerCase().includes(term))
                   );
                 }).sort((a, b) => {
-                  const inspA = a.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
-                  const inspB = b.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
+                  const inspA = a.inspecciones ? [...a.inspecciones].sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0] : null;
+                  const inspB = b.inspecciones ? [...b.inspecciones].sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0] : null;
                   const dateA = inspA ? new Date(inspA.fecha_programada) : new Date(8640000000000000);
                   const dateB = inspB ? new Date(inspB.fecha_programada) : new Date(8640000000000000);
                   return dateA - dateB;
@@ -355,7 +356,8 @@ export default function Inspector() {
               </div>
             ) : (
               historial.map((exp) => {
-                const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                const insps = exp.inspecciones ? [...exp.inspecciones] : [];
+                const ultimaInspeccion = insps.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
                 return (
                   <div key={exp.id} className="bg-white rounded-xl shadow border-l-4 border-slate-300 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
