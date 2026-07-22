@@ -607,6 +607,7 @@ export default function Admin() {
                     if (nuevoEstado === 'Aprobado') {
                        const baseDate = nuevoIngreso ? new Date(`${nuevoIngreso}T12:00:00Z`) : new Date();
                        baseDate.setFullYear(baseDate.getFullYear() + 1);
+                       baseDate.setDate(baseDate.getDate() + 15);
                        nuevaFechaVenc = baseDate.toISOString().split('T')[0];
                     } else if (nuevoEstado === 'Vencido') {
                        const ayer = new Date();
@@ -615,6 +616,7 @@ export default function Admin() {
                        
                        const haceUnAno = new Date(ayer);
                        haceUnAno.setFullYear(haceUnAno.getFullYear() - 1);
+                       haceUnAno.setDate(haceUnAno.getDate() - 15);
                        nuevoIngreso = haceUnAno.toISOString().split('T')[0];
                     }
                     setDatosDemo({...datosDemo, estado: nuevoEstado, fecha_vencimiento: nuevaFechaVenc, created_at: nuevoIngreso});
@@ -642,6 +644,7 @@ export default function Admin() {
                     if (datosDemo.estado === 'Vencido' || datosDemo.estado === 'Aprobado') {
                        const d = new Date(`${fIngreso}T12:00:00Z`);
                        d.setFullYear(d.getFullYear() + 1);
+                       d.setDate(d.getDate() + 15);
                        nuevaFechaVenc = d.toISOString().split('T')[0];
                     }
                     setDatosDemo({...datosDemo, created_at: fIngreso, fecha_vencimiento: nuevaFechaVenc});
@@ -660,7 +663,13 @@ export default function Admin() {
                       const fVenc = e.target.value;
                       const d = new Date(`${fVenc}T12:00:00Z`);
                       d.setFullYear(d.getFullYear() - 1);
-                      const nuevoIngreso = d.toISOString().split('T')[0];
+                      const approvalDateStr = d.toISOString().split('T')[0];
+                      
+                      let nuevoIngreso = datosDemo.created_at;
+                      if (nuevoIngreso >= approvalDateStr) {
+                         d.setDate(d.getDate() - 15);
+                         nuevoIngreso = d.toISOString().split('T')[0];
+                      }
                       setDatosDemo({...datosDemo, fecha_vencimiento: fVenc, created_at: nuevoIngreso});
                     }}
                     className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
