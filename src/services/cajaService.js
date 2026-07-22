@@ -66,6 +66,26 @@ export const cajaService = {
     }
   },
 
+  extornarPago: async (expedienteId) => {
+    try {
+      const { error } = await supabase
+        .from('expedientes')
+        .update({
+          monto_pagado: 0,
+          metodo_pago: null,
+          cajero_id: null,
+          estado: 'Pendiente'
+        })
+        .eq('id', expedienteId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error al extornar pago:', error);
+      throw error;
+    }
+  },
+
   obtenerHistorialTurno: async (cajeroId, fechaApertura) => {
     try {
       const { data, error } = await supabase

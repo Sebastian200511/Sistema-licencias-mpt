@@ -10,7 +10,11 @@ import Button from '../components/Button';
 export default function Cajero() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [tabActual, setTabActual] = useState('ventanilla'); // 'ventanilla' | 'historial'
+  const [tabActual, setTabActual] = useState('ventanilla');
+  const [egresos, setEgresos] = useState([]);
+  const [modalEgreso, setModalEgreso] = useState(false);
+  const [egresoMotivo, setEgresoMotivo] = useState('');
+  const [egresoMonto, setEgresoMonto] = useState(''); // 'ventanilla' | 'historial'
   const [misCierres, setMisCierres] = useState([]);
   
   const [ruc, setRuc] = useState('');
@@ -80,9 +84,49 @@ export default function Cajero() {
     }
   }, [tabActual, cargarMisCierres]);
 
+
+  useEffect(() => {
+    if (sesionCaja) {
+      const saved = localStorage.getItem('egresos_' + sesionCaja.id);
+      if (saved) setEgresos(JSON.parse(saved));
+    } else {
+      setEgresos([]);
+    }
+  }, [sesionCaja]);
+
+  const handleRegistrarEgreso = (e) => {
+    e.preventDefault();
+    if (!egresoMotivo || !egresoMonto) return;
+    const newEgresos = [...egresos, { motivo: egresoMotivo, monto: parseFloat(egresoMonto), fecha: new Date().toISOString() }];
+    setEgresos(newEgresos);
+    localStorage.setItem('egresos_' + sesionCaja.id, JSON.stringify(newEgresos));
+    setModalEgreso(false);
+    setEgresoMotivo('');
+    setEgresoMonto('');
+  };
+
+  const handleExtornar = async (expedienteId) => {
+    if (!confirm('¿Está seguro de anular este cobro?')) return;
+    setLoading(true);
+    try {
+      await cajaService.extornarPago(expedienteId);
+      await cargarHistorialTurno(sesionCaja);
+    } catch (err) {
+      alert('Error al extornar: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const abrirCaja = async (e) => {
     e.preventDefault();
     setError('');
+    
+    if (parseFloat(montoInicial) < 50) {
+      setError('El monto inicial mínimo para aperturar la caja debe ser S/ 50.00.');
+      return;
+    }
+
     setLoading(true);
     try {
       const caja = await cajaService.abrirCaja(montoInicial);
@@ -98,7 +142,8 @@ export default function Cajero() {
     setLoading(true);
     try {
       const calculo = await cajaService.calcularMontoTotalTurno(sesionCaja.cajero_id, sesionCaja.fecha_apertura);
-      setResumenCierre(calculo);
+      const totalEgresos = egresos.reduce((acc, curr) => acc + curr.monto, 0);
+      setResumenCierre({...calculo, totalEgresos});
       setModalCierre(true);
     } catch (err) {
       setError('Error al preparar cierre: ' + err.message);
@@ -112,14 +157,15 @@ export default function Cajero() {
     setLoading(true);
     setError(''); // Limpiar errores
     try {
-      const totalEsperadoFisico = parseFloat(sesionCaja.monto_inicial) + parseFloat(resumenCierre.totalEfectivo);
+      const totalEsperadoFisico = parseFloat(sesionCaja.monto_inicial) + parseFloat(resumenCierre.totalEfectivo) - parseFloat(resumenCierre.totalEgresos);
       const caja = await cajaService.cerrarCaja(sesionCaja.id, totalEsperadoFisico, montoFisicoCierre);
       setSesionCaja(null);
       setCajaCerradaResult({
         ...caja,
         totalRecaudado: resumenCierre.totalRecaudado,
         totalYape: resumenCierre.totalYape,
-        totalEfectivo: resumenCierre.totalEfectivo
+        totalEfectivo: resumenCierre.totalEfectivo,
+        totalEgresos: resumenCierre.totalEgresos
       });
       setModalCierre(false);
     } catch (err) {
@@ -346,19 +392,26 @@ export default function Cajero() {
         {tabActual === 'ventanilla' ? (
           <div className="animate-fade-in relative">
             {cajaCerradaResult && (
-        <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-slate-800 mb-6">
-          <LogOut className="mx-auto w-16 h-16 text-slate-800 mb-4" />
-          <h2 className="text-2xl font-bold">Turno Cerrado Correctamente</h2>
-          <div className="mt-4 grid grid-cols-2 gap-4 max-w-sm mx-auto text-sm">
-            <div className="bg-slate-100 p-3 rounded text-slate-700 border border-slate-200">Total Yape: <br/><b>S/ {cajaCerradaResult.totalYape?.toFixed(2) || '0.00'}</b></div>
-            <div className="bg-green-100 p-3 rounded text-green-800 border border-green-300">
-               Efectivo Esperado: <br/><b className="text-lg">S/ {cajaCerradaResult.monto_calculado?.toFixed(2) || '0.00'}</b>
-            </div>
-          </div>
-          <p className="mt-4 font-bold text-slate-800">Usted entregó (Físico): S/ {Number(cajaCerradaResult.monto_fisico).toFixed(2)}</p>
-          <Button onClick={() => setCajaCerradaResult(null)} variant="outline" className="mt-4">Nueva Sesión</Button>
-        </div>
-      )}
+              <div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-slate-800 mb-6">
+                <LogOut className="mx-auto w-16 h-16 text-slate-800 mb-4" />
+                <h2 className="text-2xl font-bold">Turno Cerrado Correctamente</h2>
+                <div className="mt-4 grid grid-cols-2 gap-4 max-w-sm mx-auto text-sm">
+                  <div className="bg-slate-100 p-3 rounded text-slate-700 border border-slate-200">Total Yape: <br/><b>S/ {cajaCerradaResult.totalYape?.toFixed(2) || '0.00'}</b></div>
+                  <div className="bg-green-100 p-3 rounded text-green-800 border border-green-300">
+                     Efectivo Esperado: <br/><b className="text-lg">S/ {cajaCerradaResult.monto_calculado?.toFixed(2) || '0.00'}</b>
+                  </div>
+                </div>
+                <p className="mt-4 font-bold text-slate-800">Usted entregó (Físico): S/ {Number(cajaCerradaResult.monto_fisico).toFixed(2)}</p>
+                <div className="flex flex-col gap-2 mt-4 max-w-xs mx-auto">
+                  <Button onClick={() => pdfGenerator.generarTicketZ(cajaCerradaResult)} variant="success">
+                    Imprimir Ticket Z (Cierre)
+                  </Button>
+                  <Button onClick={() => setCajaCerradaResult(null)} variant="outline">
+                    Nueva Sesión
+                  </Button>
+                </div>
+              </div>
+            )}
 
       {!sesionCaja && !cajaCerradaResult ? (
         <div className="bg-white p-8 rounded-xl shadow-xl max-w-md mx-auto mt-10 border border-slate-200 text-center">
@@ -397,17 +450,9 @@ export default function Cajero() {
               <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
                 <h3 className="text-xl font-bold mb-4">Cierre de Caja</h3>
                 {error && <Alert type="error" message={error} />}
-                {resumenCierre && (
-                  <div className="bg-slate-100 p-3 rounded-lg mb-4 text-sm space-y-1">
-                    <p className="flex justify-between"><span>Recaudación Total:</span> <b>S/ {resumenCierre.totalRecaudado.toFixed(2)}</b></p>
-                    <p className="flex justify-between text-slate-500"><span>Cobros por Yape:</span> <b>S/ {resumenCierre.totalYape.toFixed(2)}</b></p>
-                    <hr className="my-1 border-slate-300"/>
-                    <p className="flex justify-between text-green-700 font-bold">
-                      <span>Efectivo Esperado:</span> 
-                      <span>S/ {(sesionCaja.monto_inicial + resumenCierre.totalEfectivo).toFixed(2)}</span>
-                    </p>
-                  </div>
-                )}
+                <div className="bg-purple-100 border-l-4 border-purple-500 p-3 rounded text-sm mb-4 text-purple-900 font-medium">
+                  <p>🔒 <b>Arqueo Ciego Activo:</b> Por medidas de seguridad, debe ingresar el monto exacto de dinero físico que tiene en caja. El sistema cruzará esta información para detectar sobrantes o faltantes.</p>
+                </div>
                 <form onSubmit={cerrarCaja}>
                   <label className="block text-sm font-bold text-slate-700 mb-2">¿Cuánto dinero físico REAL tiene en la caja?</label>
                   <input type="number" step="0.01" min="0" required value={montoFisicoCierre} onChange={e => setMontoFisicoCierre(e.target.value)} className="w-full p-3 border rounded-lg text-xl mb-4 font-bold" placeholder="S/" />

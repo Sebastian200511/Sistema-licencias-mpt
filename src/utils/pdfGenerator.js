@@ -416,5 +416,90 @@ export const pdfGenerator = {
     // Retornar base64 para envío por correo
     const base64String = doc.output('datauristring').split(',')[1];
     return base64String;
+  },
+
+  generarTicketZ: (caja) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [80, 200]
+    });
+
+    let y = 10;
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("TICKET Z - CIERRE", 40, y, { align: "center" });
+    
+    y += 8;
+    doc.setFontSize(10);
+    doc.text("MUNICIPALIDAD PROV. DE TRUJILLO", 40, y, { align: "center" });
+    
+    y += 10;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    
+    const fApertura = new Date(caja.fecha_apertura).toLocaleString();
+    const fCierre = new Date(caja.fecha_cierre).toLocaleString();
+
+    doc.text(`ID Turno: ${caja.id.split('-')[0].toUpperCase()}`, 5, y);
+    y += 5;
+    doc.text(`Apertura: ${fApertura}`, 5, y);
+    y += 5;
+    doc.text(`Cierre: ${fCierre}`, 5, y);
+    
+    y += 5;
+    doc.line(5, y, 75, y);
+    
+    y += 6;
+    doc.setFont("helvetica", "bold");
+    doc.text("DETALLE DE INGRESOS", 5, y);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+    doc.text(`Fondo Inicial: S/ ${(caja.monto_inicial || 0).toFixed(2)}`, 5, y);
+    y += 5;
+    doc.text(`Cobros Efectivo: S/ ${(caja.totalEfectivo || 0).toFixed(2)}`, 5, y);
+    y += 5;
+    doc.text(`Cobros Yape/Tarjeta: S/ ${(caja.totalYape || 0).toFixed(2)}`, 5, y);
+    
+    y += 5;
+    doc.line(5, y, 75, y);
+    
+    y += 6;
+    doc.setFont("helvetica", "bold");
+    const esperado = (caja.monto_inicial || 0) + (caja.totalEfectivo || 0);
+    const fisico = caja.monto_fisico || 0;
+    const diferencia = fisico - esperado;
+    
+    doc.text(`TOTAL ESPERADO: S/ ${esperado.toFixed(2)}`, 5, y);
+    y += 5;
+    doc.text(`TOTAL FISICO (Declarado): S/ ${fisico.toFixed(2)}`, 5, y);
+    
+    y += 7;
+    doc.setFontSize(11);
+    if (diferencia === 0) {
+      doc.text("CUADRE PERFECTO", 40, y, { align: "center" });
+    } else if (diferencia > 0) {
+      doc.text(`SOBRANTE: S/ ${diferencia.toFixed(2)}`, 40, y, { align: "center" });
+    } else {
+      doc.text(`FALTANTE: S/ ${Math.abs(diferencia).toFixed(2)}`, 40, y, { align: "center" });
+    }
+    
+    y += 10;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.line(5, y, 75, y);
+    y += 20;
+    
+    doc.line(15, y, 65, y);
+    y += 5;
+    doc.text("Firma del Cajero", 40, y, { align: "center" });
+    
+    y += 20;
+    doc.line(15, y, 65, y);
+    y += 5;
+    doc.text("Firma de Tesorería", 40, y, { align: "center" });
+
+    doc.save(`Ticket_Z_${caja.id.split('-')[0]}.pdf`);
   }
 };
