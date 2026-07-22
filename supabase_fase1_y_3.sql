@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS public.feriados (
 CREATE TABLE IF NOT EXISTS public.agenda_inspector (
     id serial PRIMARY KEY,
     fecha date NOT NULL UNIQUE,
-    cupos_totales integer DEFAULT 10,
+    cupos_totales integer DEFAULT 8,
     cupos_ocupados integer DEFAULT 0,
     activo boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
@@ -85,7 +85,7 @@ BEGIN
                 -- Es un día hábil válido, revisar cupos
                 -- Insertar la fecha en agenda_inspector si no existe, asumiendo 10 cupos por defecto
                 INSERT INTO public.agenda_inspector (fecha, cupos_totales, cupos_ocupados)
-                VALUES (v_fecha_candidata, 10, 0)
+                VALUES (v_fecha_candidata, 8, 0)
                 ON CONFLICT (fecha) DO NOTHING;
                 
                 -- Bloquear la fila para evitar concurrencia (SELECT FOR UPDATE)

@@ -13,7 +13,6 @@ export default function Inspector() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   const hoyStr = new Date().toISOString().split('T')[0];
-  const [filtroFecha, setFiltroFecha] = useState(hoyStr);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [modalObs, setModalObs] = useState({ 

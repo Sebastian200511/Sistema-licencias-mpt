@@ -74,7 +74,7 @@ CREATE TABLE public.feriados (
 CREATE TABLE public.agenda_inspector (
     id serial PRIMARY KEY,
     fecha date NOT NULL UNIQUE,
-    cupos_totales integer DEFAULT 10,
+    cupos_totales integer DEFAULT 8,
     cupos_ocupados integer DEFAULT 0,
     activo boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
@@ -121,7 +121,7 @@ BEGIN
             
             IF NOT v_es_feriado THEN
                 INSERT INTO public.agenda_inspector (fecha, cupos_totales, cupos_ocupados)
-                VALUES (v_fecha_candidata, 10, 0)
+                VALUES (v_fecha_candidata, 8, 0)
                 ON CONFLICT (fecha) DO NOTHING;
                 
                 SELECT * INTO v_agenda_record 
