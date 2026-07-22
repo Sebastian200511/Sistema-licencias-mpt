@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 
 export const reportesService = {
-  obtenerReporteFinanciero: async () => {
+  obtenerReporteFinanciero: async (fechaInicio = null, fechaFin = null) => {
     try {
       // 1. Obtener todos los cajeros
       const { data: usuarios, error: errUsuarios } = await supabase
@@ -12,10 +12,15 @@ export const reportesService = {
       if (errUsuarios) throw errUsuarios;
 
       // 2. Obtener todos los expedientes cobrados (que tienen monto y cajero asignado)
-      const { data: expedientes, error: errExpedientes } = await supabase
+      let query = supabase
         .from('expedientes')
         .select('cajero_id, monto_pagado, metodo_pago, created_at')
         .gt('monto_pagado', 0);
+        
+      if (fechaInicio) query = query.gte('created_at', `${fechaInicio}T00:00:00Z`);
+      if (fechaFin) query = query.lte('created_at', `${fechaFin}T23:59:59.999Z`);
+
+      const { data: expedientes, error: errExpedientes } = await query;
 
       if (errExpedientes) throw errExpedientes;
 

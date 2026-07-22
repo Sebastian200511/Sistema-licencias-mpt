@@ -16,7 +16,9 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   
-  const [tabActual, setTabActual] = useState(() => localStorage.getItem('adminTab') || 'directorio');
+  const [tabActual, setTabActual] = useState(() => localStorage.getItem('adminTab') || 'reportes');
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
   const [reporteFinanciero, setReporteFinanciero] = useState(null);
   
   // Expedientes State
@@ -53,7 +55,7 @@ export default function Admin() {
   const cargarReportes = async () => {
     setLoading(true);
     try {
-      const reporte = await reportesService.obtenerReporteFinanciero();
+      const reporte = await reportesService.obtenerReporteFinanciero(fechaInicio, fechaFin);
       setReporteFinanciero(reporte);
     } catch (err) {
       setError('Error al cargar reporte: ' + err.message);
@@ -216,8 +218,7 @@ export default function Admin() {
                   onChange={e => setForm({...form, password: e.target.value})} 
                   required 
                 />
-                <p className="text-xs text-slate-500 mt-1 mb-3">El usuario podrá cambiar esta contraseña al iniciar sesión en su cuenta.</p>
-                <div>
+                <div className="mt-2">
                   <label className="block text-sm font-bold text-slate-700 mb-1">Rol en el Sistema</label>
                   <select 
                     className="w-full p-2 border border-slate-300 rounded focus:ring-slate-500 focus:border-slate-500"
@@ -288,6 +289,58 @@ export default function Admin() {
           <div className="space-y-6 animate-fade-in">
             {reporteFinanciero ? (
               <>
+                {/* Filtros y Exportar */}
+                <div className="flex flex-wrap items-end gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Desde</label>
+                    <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="border p-1.5 rounded text-sm outline-none"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Hasta</label>
+                    <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="border p-1.5 rounded text-sm outline-none"/>
+                  </div>
+                  <Button onClick={cargarReportes} className="text-sm py-1.5 px-3 bg-slate-800 text-white rounded font-bold">Aplicar Filtro</Button>
+                  <button 
+                    onClick={() => {
+                      const csvContent = "data:text/csv;charset=utf-8,Cajero,Tramites,Efectivo,Yape,Virtual,Total\n" + 
+                        reporteFinanciero.desgloseCajeros.map(c => 
+                          `"${c.nombre}",${c.cantidad},${c.efectivo},${c.yape},${c.tarjeta || 0},${c.total}`
+                        ).join("\n");
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", "reporte_financiero.csv");
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="ml-auto text-sm bg-green-600 hover:bg-green-700 text-white py-1.5 px-3 rounded font-bold"
+                  >
+                    📥 Exportar CSV
+                  </button>
+                </div>
+                
+                {/* Gráfico Visual Simple */}
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                  <p className="text-sm font-bold text-slate-700 mb-2">Distribución de Ingresos (Porcentajes)</p>
+                  <div className="h-6 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                    <div style={{width: `${reporteFinanciero.totales.general ? (reporteFinanciero.totales.efectivo/reporteFinanciero.totales.general)*100 : 0}%`}} className="bg-green-500 flex items-center justify-center text-[10px] text-white font-bold" title="Efectivo">
+                      {reporteFinanciero.totales.general && (reporteFinanciero.totales.efectivo/reporteFinanciero.totales.general)*100 >= 5 ? Math.round((reporteFinanciero.totales.efectivo/reporteFinanciero.totales.general)*100) + '%' : ''}
+                    </div>
+                    <div style={{width: `${reporteFinanciero.totales.general ? (reporteFinanciero.totales.yape/reporteFinanciero.totales.general)*100 : 0}%`}} className="bg-purple-500 flex items-center justify-center text-[10px] text-white font-bold" title="Yape/Plin">
+                      {reporteFinanciero.totales.general && (reporteFinanciero.totales.yape/reporteFinanciero.totales.general)*100 >= 5 ? Math.round((reporteFinanciero.totales.yape/reporteFinanciero.totales.general)*100) + '%' : ''}
+                    </div>
+                    <div style={{width: `${reporteFinanciero.totales.general ? (reporteFinanciero.totales.tarjeta/reporteFinanciero.totales.general)*100 : 0}%`}} className="bg-yellow-500 flex items-center justify-center text-[10px] text-white font-bold" title="Pagos Virtuales">
+                      {reporteFinanciero.totales.general && (reporteFinanciero.totales.tarjeta/reporteFinanciero.totales.general)*100 >= 5 ? Math.round((reporteFinanciero.totales.tarjeta/reporteFinanciero.totales.general)*100) + '%' : ''}
+                    </div>
+                  </div>
+                  <div className="flex gap-4 mt-2 text-xs text-slate-500 font-medium">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> Efectivo</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Yape/Plin</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500"></span> Virtual (MP)</span>
+                  </div>
+                </div>
+
                 {/* KPIs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -362,14 +415,14 @@ export default function Admin() {
                 Bandeja Central de Expedientes
               </h2>
               <div className="flex items-center gap-4 w-full sm:w-auto">
-                <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-200 transition">
+                <label className="flex items-center gap-1 cursor-pointer opacity-40 hover:opacity-100 transition ml-2" title="Activar herramientas de Demostración">
                   <input 
                     type="checkbox" 
                     checked={modoDemo} 
                     onChange={(e) => setModoDemo(e.target.checked)} 
-                    className="w-4 h-4 text-purple-600"
+                    className="w-3 h-3 text-slate-400 focus:ring-0 rounded-sm"
                   />
-                  <span className="text-sm font-bold text-purple-800">Modo Demo</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Demo</span>
                 </label>
                 <button
                   onClick={async () => {
