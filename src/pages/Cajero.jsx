@@ -475,8 +475,21 @@ export default function Cajero() {
               </div>
                 
                 <div className="text-left mb-4">
-                  <label className="text-sm font-bold text-slate-700 block mb-3 text-center">Seleccione el Efectivo Recibido</label>
+                  <label className="text-sm font-bold text-slate-700 block mb-3 text-center">Seleccione o Ingrese el Efectivo Recibido</label>
                   
+                  <div className="mb-4 flex items-center justify-center">
+                     <span className="text-xl font-bold font-mono mr-2 text-slate-600">S/</span>
+                     <input 
+                       type="number"
+                       min={tarifa}
+                       step="0.10"
+                       value={efectivoRecibido}
+                       onChange={(e) => setEfectivoRecibido(e.target.value)}
+                       className="text-xl font-bold font-mono border-b-2 border-slate-300 focus:border-teal-500 outline-none w-32 text-center bg-transparent text-slate-800"
+                       placeholder="0.00"
+                     />
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {[5, 10, 20, 50, 100].map(billete => (
                       <button
@@ -574,7 +587,7 @@ export default function Cajero() {
                 }}
                 disabled={empresaValidada !== null || buscandoSunat}
                 className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-600 outline-none disabled:bg-slate-100"
-                placeholder="RUC del ciudadano"
+                placeholder="RUC de la empresa"
               />
               {!empresaValidada && (
                 <button type="submit" disabled={buscandoSunat || ruc.length !== 11} className="bg-slate-800 text-white px-6 rounded-lg font-bold hover:bg-slate-900 disabled:opacity-50">
