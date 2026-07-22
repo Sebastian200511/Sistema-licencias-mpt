@@ -14,6 +14,7 @@ export default function Seguimiento() {
   const [subsanacionFile, setSubsanacionFile] = useState(null);
   const [subsanacionLoading, setSubsanacionLoading] = useState(false);
   const [subsanacionExito, setSubsanacionExito] = useState(false);
+  const [mensajeTramiteActivo, setMensajeTramiteActivo] = useState('');
   const [renovacionLoading, setRenovacionLoading] = useState(false);
   const [renovacionFile, setRenovacionFile] = useState(null);
   const [nuevaLicenciaCodigo, setNuevaLicenciaCodigo] = useState('');
@@ -50,6 +51,13 @@ export default function Seguimiento() {
 
       setTramite(expData);
       setEmpresa(expData.empresas);
+      
+      const verificacion = await expedientesService.verificarTramiteActivo(expData.empresas.ruc);
+      if (verificacion.tieneTramite) {
+        setMensajeTramiteActivo(verificacion.mensaje);
+      } else {
+        setMensajeTramiteActivo('');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -244,6 +252,12 @@ export default function Seguimiento() {
                           <p className="mb-2">Su nuevo código de seguimiento es:</p>
                           <p className="text-3xl font-black text-green-800 mb-4">{nuevaLicenciaCodigo}</p>
                           <p className="text-sm">Por favor, acérquese a las ventanillas de la Municipalidad para realizar el pago de la tasa de inspección correspondiente. Una vez pagado, su trámite pasará a Inspección.</p>
+                        </div>
+                      ) : mensajeTramiteActivo ? (
+                        <div className="bg-yellow-100 border border-yellow-300 text-yellow-900 p-6 rounded-lg text-center shadow-lg w-full mb-4">
+                          <AlertCircle className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
+                          <h4 className="text-lg font-bold mb-2">Acción Restringida</h4>
+                          <p className="text-sm font-semibold">{mensajeTramiteActivo}</p>
                         </div>
                       ) : (
                         <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
