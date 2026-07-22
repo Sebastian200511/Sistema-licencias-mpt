@@ -37,7 +37,8 @@ export default function Seguimiento() {
           setUltimaInspeccion(inspeccionConObservacion);
         } else {
           // Fallback: ordenar por fecha de creación
-          const ordenadasPorFecha = expData.inspecciones.sort(
+          const insps = expData.inspecciones ? [...expData.inspecciones] : [];
+          const ordenadasPorFecha = insps.sort(
             (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
           );
           setUltimaInspeccion(ordenadasPorFecha[0]);

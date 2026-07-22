@@ -346,37 +346,6 @@ export default function Admin() {
           <div className="space-y-6 animate-fade-in">
             {reporteFinanciero ? (
               <>
-                {/* Filtros y Exportar */}
-                <div className="flex flex-wrap items-end gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Desde</label>
-                    <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="border p-1.5 rounded text-sm outline-none"/>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Hasta</label>
-                    <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="border p-1.5 rounded text-sm outline-none"/>
-                  </div>
-                  <Button onClick={cargarReportes} className="text-sm py-1.5 px-3 bg-slate-800 text-white rounded font-bold">Aplicar Filtro</Button>
-                  <button 
-                    onClick={() => {
-                      const csvContent = "data:text/csv;charset=utf-8,Cajero,Tramites,Efectivo,Yape,Virtual,Total\n" + 
-                        reporteFinanciero.desgloseCajeros.map(c => 
-                          `"${c.nombre}",${c.cantidad},${c.efectivo},${c.yape},${c.tarjeta || 0},${c.total}`
-                        ).join("\n");
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", "reporte_financiero.csv");
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    className="ml-auto text-sm bg-green-600 hover:bg-green-700 text-white py-1.5 px-3 rounded font-bold"
-                  >
-                    📥 Exportar CSV
-                  </button>
-                </div>
-                
                 {/* Gráfico Visual Simple */}
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                   <p className="text-sm font-bold text-slate-700 mb-2">Distribución de Ingresos (Porcentajes)</p>
@@ -677,15 +646,17 @@ export default function Admin() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Vencimiento (Solo Aprobados)</label>
-                <input 
-                  type="date" 
-                  value={datosDemo.fecha_vencimiento} 
-                  onChange={(e) => setDatosDemo({...datosDemo, fecha_vencimiento: e.target.value})}
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
-                />
-              </div>
+              {(datosDemo.estado === 'Aprobado' || datosDemo.estado === 'Vencido') && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Vencimiento (Solo Aprobados)</label>
+                  <input 
+                    type="date" 
+                    value={datosDemo.fecha_vencimiento} 
+                    onChange={(e) => setDatosDemo({...datosDemo, fecha_vencimiento: e.target.value})}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              )}
 
               {datosDemo.inspeccion_id && (
                 <div>
