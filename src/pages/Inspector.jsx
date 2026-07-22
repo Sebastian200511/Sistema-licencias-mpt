@@ -13,7 +13,7 @@ export default function Inspector() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   const hoyStr = new Date().toISOString().split('T')[0];
-  const [filtroFecha, setFiltroFecha] = useState(hoyStr);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [modalObs, setModalObs] = useState({ 
     visible: false, 
@@ -139,29 +139,23 @@ export default function Inspector() {
   };
 
 
-  const manana = new Date();
-  manana.setDate(manana.getDate() + 1);
-  const mananaStr = manana.toISOString().split('T')[0];
-
-  const agrupados = { atrasadas: [], hoy: [], manana: [], futuras: [], filtradas: [] };
   
-  if (tabActual === 'pendientes') {
-    expedientes.forEach(exp => {
-      // Find the inspection with the latest scheduled date
-      const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
-      const f = ultimaInspeccion?.fecha_programada;
-      if (!f) return;
+  const expedientesFiltrados = expedientes.filter(exp => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (exp.codigo && exp.codigo.toLowerCase().includes(term)) ||
+      (exp.empresas?.ruc && exp.empresas.ruc.toLowerCase().includes(term)) ||
+      (exp.empresas?.razon_social && exp.empresas.razon_social.toLowerCase().includes(term))
+    );
+  }).sort((a, b) => {
+    const inspA = a.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
+    const inspB = b.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
+    const dateA = inspA ? new Date(inspA.fecha_programada) : new Date(8640000000000000);
+    const dateB = inspB ? new Date(inspB.fecha_programada) : new Date(8640000000000000);
+    return dateA - dateB;
+  });
 
-      if (filtroFecha) {
-        if (f === filtroFecha) agrupados.filtradas.push(exp);
-      } else {
-        if (f < hoyStr) agrupados.atrasadas.push(exp);
-        else if (f === hoyStr) agrupados.hoy.push(exp);
-        else if (f === mananaStr) agrupados.manana.push(exp);
-        else agrupados.futuras.push(exp);
-      }
-    });
-  }
 
   const renderGrupo = (titulo, lista, colorClase) => {
     if (lista.length === 0) return null;
@@ -266,17 +260,17 @@ export default function Inspector() {
             <ListFilter className="text-blue-900 w-6 h-6" /> Bandeja de Inspecciones
           </h2>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <Calendar className="w-4 h-4 text-slate-500" />
-              <span className="text-sm text-slate-600 font-medium hidden sm:inline">Ver por fecha:</span>
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm w-full md:w-80">
+              <span className="text-sm text-slate-400">🔍</span>
               <input 
-                type="date" 
-                value={filtroFecha}
-                onChange={(e) => setFiltroFecha(e.target.value)}
-                className="text-sm outline-none bg-transparent cursor-pointer text-slate-700 font-bold"
+                type="text" 
+                placeholder="Buscar RUC, Empresa o Código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="text-sm outline-none bg-transparent text-slate-700 w-full font-medium"
               />
-              {filtroFecha && (
-                <button onClick={() => setFiltroFecha('')} className="text-xs text-red-500 hover:underline ml-1 font-bold">Limpiar</button>
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4"/></button>
               )}
             </div>
 
