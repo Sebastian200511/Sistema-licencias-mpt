@@ -13,6 +13,7 @@ export default function Inspector() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   const hoyStr = new Date().toISOString().split('T')[0];
+  const [filtroFecha, setFiltroFecha] = useState(hoyStr);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [modalObs, setModalObs] = useState({ 
@@ -139,23 +140,29 @@ export default function Inspector() {
   };
 
 
-  
-  const expedientesFiltrados = expedientes.filter(exp => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      (exp.codigo && exp.codigo.toLowerCase().includes(term)) ||
-      (exp.empresas?.ruc && exp.empresas.ruc.toLowerCase().includes(term)) ||
-      (exp.empresas?.razon_social && exp.empresas.razon_social.toLowerCase().includes(term))
-    );
-  }).sort((a, b) => {
-    const inspA = a.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
-    const inspB = b.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
-    const dateA = inspA ? new Date(inspA.fecha_programada) : new Date(8640000000000000);
-    const dateB = inspB ? new Date(inspB.fecha_programada) : new Date(8640000000000000);
-    return dateA - dateB;
-  });
+  const manana = new Date();
+  manana.setDate(manana.getDate() + 1);
+  const mananaStr = manana.toISOString().split('T')[0];
 
+  const agrupados = { atrasadas: [], hoy: [], manana: [], futuras: [], filtradas: [] };
+  
+  if (tabActual === 'pendientes') {
+    expedientes.forEach(exp => {
+      // Find the inspection with the latest scheduled date
+      const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+      const f = ultimaInspeccion?.fecha_programada;
+      if (!f) return;
+
+      if (filtroFecha) {
+        if (f === filtroFecha) agrupados.filtradas.push(exp);
+      } else {
+        if (f < hoyStr) agrupados.atrasadas.push(exp);
+        else if (f === hoyStr) agrupados.hoy.push(exp);
+        else if (f === mananaStr) agrupados.manana.push(exp);
+        else agrupados.futuras.push(exp);
+      }
+    });
+  }
 
   const renderGrupo = (titulo, lista, colorClase) => {
     if (lista.length === 0) return null;
@@ -260,17 +267,17 @@ export default function Inspector() {
             <ListFilter className="text-blue-900 w-6 h-6" /> Bandeja de Inspecciones
           </h2>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm w-full md:w-80">
-              <span className="text-sm text-slate-400">🔍</span>
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="text-sm text-slate-600 font-medium hidden sm:inline">Ver por fecha:</span>
               <input 
-                type="text" 
-                placeholder="Buscar RUC, Empresa o Código..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="text-sm outline-none bg-transparent text-slate-700 w-full font-medium"
+                type="date" 
+                value={filtroFecha}
+                onChange={(e) => setFiltroFecha(e.target.value)}
+                className="text-sm outline-none bg-transparent cursor-pointer text-slate-700 font-bold"
               />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4"/></button>
+              {filtroFecha && (
+                <button onClick={() => setFiltroFecha('')} className="text-xs text-red-500 hover:underline ml-1 font-bold">Limpiar</button>
               )}
             </div>
 
@@ -298,7 +305,43 @@ export default function Inspector() {
         {error && <Alert type="error" message={error} />}
         {mensajeExito && <Alert type="success" message={mensajeExito} />}
 
-        {tabActual === 'pendientes' ? (
+        {tabActual === 'todos' ? (
+          <div className="space-y-4">
+            {expedientes.filter(exp => {
+              if (!searchTerm) return true;
+              const term = searchTerm.toLowerCase();
+              return (
+                (exp.codigo && exp.codigo.toLowerCase().includes(term)) ||
+                (exp.empresas?.ruc && exp.empresas.ruc.toLowerCase().includes(term)) ||
+                (exp.empresas?.razon_social && exp.empresas.razon_social.toLowerCase().includes(term))
+              );
+            }).length === 0 ? (
+              <div className="bg-white p-12 rounded-xl shadow border border-slate-200 text-center text-slate-500 font-medium flex flex-col items-center justify-center">
+                <p className="text-lg">No se encontraron expedientes con ese término.</p>
+              </div>
+            ) : (
+              renderGrupo(
+                "Todas las Inspecciones", 
+                expedientes.filter(exp => {
+                  if (!searchTerm) return true;
+                  const term = searchTerm.toLowerCase();
+                  return (
+                    (exp.codigo && exp.codigo.toLowerCase().includes(term)) ||
+                    (exp.empresas?.ruc && exp.empresas.ruc.toLowerCase().includes(term)) ||
+                    (exp.empresas?.razon_social && exp.empresas.razon_social.toLowerCase().includes(term))
+                  );
+                }).sort((a, b) => {
+                  const inspA = a.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
+                  const inspB = b.inspecciones?.sort((x, y) => new Date(y.fecha_programada) - new Date(x.fecha_programada))[0];
+                  const dateA = inspA ? new Date(inspA.fecha_programada) : new Date(8640000000000000);
+                  const dateB = inspB ? new Date(inspB.fecha_programada) : new Date(8640000000000000);
+                  return dateA - dateB;
+                }), 
+                "text-slate-800 border-slate-300"
+              )
+            )}
+          </div>
+        ) : tabActual === 'pendientes' ? (
           expedientes.length === 0 ? (
             <div className="bg-white p-12 rounded-xl shadow border border-slate-200 text-center text-slate-500 font-medium flex flex-col items-center justify-center">
               <ClipboardCheck className="w-16 h-16 text-slate-300 mb-4" />
@@ -307,10 +350,18 @@ export default function Inspector() {
             </div>
           ) : (
             <div className="space-y-2">
-              {expedientesFiltrados.length > 0 
-                  ? renderGrupo(`Lista de Inspecciones (${expedientesFiltrados.length})`, expedientesFiltrados, "text-slate-800 border-slate-300")
-                  : <div className="bg-white p-8 rounded-xl shadow border border-slate-200 text-center text-slate-500">No se encontraron inspecciones.</div>
-                }
+              {filtroFecha ? (
+                 agrupados.filtradas.length > 0 
+                   ? renderGrupo(`🔎 Resultados para la fecha: ${filtroFecha}`, agrupados.filtradas, "text-blue-800 border-blue-300")
+                   : <div className="bg-white p-8 rounded-xl shadow border border-slate-200 text-center text-slate-500">No hay inspecciones programadas para la fecha seleccionada.</div>
+              ) : (
+                <>
+                  {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
+                  {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
+                  {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
+                  {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
+                </>
+              )}
             </div>
           )
         ) : (
