@@ -491,7 +491,6 @@ export default function Admin() {
                     <th className="p-3">Inspección</th>
                     <th className="p-3 text-right">Monto (S/)</th>
                     <th className="p-3 text-center">Acciones</th>
-                    <th className="p-3 text-center">Acciones</th>
                     {modoDemo && <th className="p-3 text-center text-purple-700">Demo</th>}
                   </tr>
                 </thead>
@@ -572,7 +571,7 @@ export default function Admin() {
                   ))}
                   {expedientes.length === 0 && (
                     <tr>
-                      <td colSpan={modoDemo ? "8" : "7"} className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
+                      <td colSpan={modoDemo ? "9" : "8"} className="p-8 text-center text-slate-500 italic">No se encontraron expedientes registrados.</td>
                     </tr>
                   )}
                 </tbody>
