@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar, RefreshCw } from 'lucide-react';
 import { expedientesService } from '../services/expedientesService';
@@ -18,6 +18,98 @@ export default function Seguimiento() {
   const [renovacionLoading, setRenovacionLoading] = useState(false);
   const [renovacionFile, setRenovacionFile] = useState(null);
   const [nuevaLicenciaCodigo, setNuevaLicenciaCodigo] = useState('');
+  const [pagoAprobado, setPagoAprobado] = useState(false);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const collectionId = urlParams.get('collection_id');
+    
+    if (status === 'approved' || collectionId) {
+      setPagoAprobado(true);
+      const savedState = sessionStorage.getItem('mpt_renovacion_state');
+      
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        
+        const savedPdfName = sessionStorage.getItem('mpt_renovacion_pdf_name');
+        const savedPdfData = sessionStorage.getItem('mpt_renovacion_pdf_data');
+        if (savedPdfName && savedPdfData) {
+          fetch(savedPdfData)
+            .then(res => res.blob())
+            .then(blob => {
+              const recoveredFile = new File([blob], savedPdfName, { type: blob.type || 'application/pdf' });
+              setRenovacionFile(recoveredFile);
+              procesarRenovacionPagada(parsedState, recoveredFile);
+            });
+        } else {
+          procesarRenovacionPagada(parsedState, null);
+        }
+      }
+      
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+       sessionStorage.removeItem('mpt_renovacion_pdf_name');
+       sessionStorage.removeItem('mpt_renovacion_pdf_data');
+       sessionStorage.removeItem('mpt_renovacion_state');
+    }
+  }, []);
+
+  const procesarRenovacionPagada = async (state, file) => {
+    setRenovacionLoading(true);
+    setLoading(true);
+    setError('');
+    setFormData({ ruc: state.ruc, codigo: state.codigo });
+    try {
+      const expData = await expedientesService.buscarExpediente(state.codigo);
+      setTramite(expData);
+      setEmpresa(expData.empresas);
+      
+      const nuevoExpediente = await expedientesService.renovarExpediente(expData.id, file, state.esExpress);
+      
+      let fechaVisita = null;
+      if (!state.esExpress) {
+         fechaVisita = await expedientesService.asignarCupoInteligente(nuevoExpediente.id);
+      }
+
+      let pdfBase64 = null;
+      try {
+        pdfBase64 = pdfGenerator.generarComprobanteSunat(nuevoExpediente, expData.empresas, 3.00, 'Boleta');
+      } catch (err) { console.error('Error pdf:', err); }
+
+      if (expData.empresas.email_contacto) {
+        expedientesService.enviarCorreoNotificacion({
+          email: expData.empresas.email_contacto,
+          codigo: nuevoExpediente.codigo,
+          razonSocial: expData.empresas.razon_social,
+          esExpress: state.esExpress,
+          tipoComprobante: 'Boleta',
+          adjuntoBase64: pdfBase64,
+          tipoNotificacion: 'comprobante_pago'
+        }).catch(e => console.error(e));
+
+        if (fechaVisita) {
+           expedientesService.enviarCorreoNotificacion({
+              email: expData.empresas.email_contacto,
+              codigo: nuevoExpediente.codigo,
+              razonSocial: expData.empresas.razon_social,
+              fechaVisita: fechaVisita,
+              tipoNotificacion: 'nueva_inspeccion'
+           }).catch(e => console.error(e));
+        }
+      }
+
+      setNuevaLicenciaCodigo(nuevoExpediente.codigo);
+    } catch (err) {
+      setError('Error al procesar renovación pagada: ' + err.message);
+    } finally {
+      setRenovacionLoading(false);
+      setLoading(false);
+      sessionStorage.removeItem('mpt_renovacion_pdf_name');
+      sessionStorage.removeItem('mpt_renovacion_pdf_data');
+      sessionStorage.removeItem('mpt_renovacion_state');
+    }
+  };
 
   const handleBuscar = async (e) => {
     e.preventDefault();
@@ -81,19 +173,51 @@ export default function Seguimiento() {
     }
   };
 
+  const handleRenovacionFileChange = (e) => {
+    if (e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setRenovacionFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        sessionStorage.setItem('mpt_renovacion_pdf_name', file.name);
+        sessionStorage.setItem('mpt_renovacion_pdf_data', reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleRenovacion = async (esExpress) => {
     setRenovacionLoading(true);
     setError('');
-    setNuevaLicenciaCodigo('');
+    
     try {
       if (!esExpress && !renovacionFile) {
         throw new Error('Debe adjuntar el nuevo plano para solicitar la renovación con cambios.');
       }
-      const nuevoExpediente = await expedientesService.renovarExpediente(tramite.id, esExpress ? null : renovacionFile);
-      setNuevaLicenciaCodigo(nuevoExpediente.codigo);
+      
+      sessionStorage.setItem('mpt_renovacion_state', JSON.stringify({
+        ruc: empresa.ruc,
+        codigo: tramite.codigo,
+        esExpress
+      }));
+
+      const { data, error: functionError } = await import('../supabaseClient').then(m => m.supabase).then(supabase => supabase.functions.invoke('crear-preferencia', {
+        body: {
+          razonSocial: empresa.razon_social,
+          tipoTramite: esExpress ? 'renovacion_express' : 'renovacion_cambios',
+          originUrl: window.location.origin + window.location.pathname
+        }
+      }));
+
+      if (functionError) throw functionError;
+
+      if (data && data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        throw new Error('Error al generar la preferencia de pago de MercadoPago.');
+      }
     } catch (err) {
-      setError(err.message);
-    } finally {
+      setError(err.message || 'Error al conectar con la pasarela de pagos.');
       setRenovacionLoading(false);
     }
   };
@@ -293,7 +417,7 @@ export default function Seguimiento() {
                                 <input 
                                   type="file" 
                                   accept=".pdf" 
-                                  onChange={(e) => setRenovacionFile(e.target.files[0])} 
+                                  onChange={handleRenovacionFileChange} 
                                   className="mb-3 text-sm w-full bg-white border border-orange-300 rounded p-2" 
                                 />
                                 <button 

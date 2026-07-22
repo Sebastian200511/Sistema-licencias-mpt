@@ -134,7 +134,7 @@ export const expedientesService = {
     return data;
   },
 
-  renovarExpediente: async (expedienteAntiguoId, fileObject = null) => {
+  renovarExpediente: async (expedienteAntiguoId, fileObject = null, esExpress = false) => {
     // 1. Obtener datos del expediente antiguo
     const { data: antiguo, error: errFetch } = await supabase
       .from('expedientes')
@@ -166,10 +166,18 @@ export const expedientesService = {
       codigo: codigoExpediente,
       empresa_id: antiguo.empresa_id,
       plano_url: planoUrl,
-      estado: 'Pendiente',
-      monto_pagado: null,
+      estado: esExpress ? 'Aprobado' : 'Pendiente',
+      monto_pagado: 3.00,
+      metodo_pago: 'Tarjeta',
       fecha_vencimiento: null
     };
+
+    // Si es express, calcular la fecha de vencimiento (1 año después)
+    if (esExpress) {
+      const fechaVenc = new Date();
+      fechaVenc.setFullYear(fechaVenc.getFullYear() + 1);
+      nuevoExpediente.fecha_vencimiento = fechaVenc.toISOString().split('T')[0];
+    }
 
     const { data, error: errInsert } = await supabase
       .from('expedientes')
