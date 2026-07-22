@@ -154,7 +154,7 @@ export default function Inspector() {
   
   if (tabActual === 'pendientes') {
     expedientes.forEach(exp => {
-      if (['Aprobado', 'Rechazado', 'Observado', 'Denegado Definitivo'].includes(exp.estado)) return;
+      if (['Aprobado', 'Rechazado', 'Denegado Definitivo'].includes(exp.estado)) return;
       
       // Find the inspection with the latest scheduled date
       const insps = exp.inspecciones ? [...exp.inspecciones] : [];
@@ -236,7 +236,16 @@ export default function Inspector() {
                     >
                       Dar Conformidad
                     </Button>
-                    {exp.estado !== 'Observado' && (
+                    
+                    {exp.estado === 'Observado' ? (
+                      <Button
+                        variant="danger"
+                        onClick={() => actualizarEstadoTramite(exp.id, 'Rechazado')}
+                        className="w-full text-sm font-bold"
+                      >
+                        Rechazar Local
+                      </Button>
+                    ) : (
                       <Button
                         variant="danger"
                         onClick={() => {
