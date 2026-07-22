@@ -150,27 +150,19 @@ export default function Inspector() {
   };
 
 
-  const manana = new Date();
-  manana.setDate(manana.getDate() + 1);
-  const mananaStr = manana.toISOString().split('T')[0];
-
-  const agrupados = { atrasadas: [], hoy: [], manana: [], futuras: [], filtradas: [] };
+  const agrupados = { atrasadas: [], hoy: [] };
   
   if (tabActual === 'pendientes') {
     expedientes.forEach(exp => {
+      if (['Aprobado', 'Rechazado', 'Observado', 'Denegado Definitivo'].includes(exp.estado)) return;
+      
       // Find the inspection with the latest scheduled date
       const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
       const f = ultimaInspeccion?.fecha_programada;
       if (!f) return;
 
-      if (filtroFecha) {
-        if (f === filtroFecha) agrupados.filtradas.push(exp);
-      } else {
-        if (f < hoyStr) agrupados.atrasadas.push(exp);
-        else if (f === hoyStr) agrupados.hoy.push(exp);
-        else if (f === mananaStr) agrupados.manana.push(exp);
-        else agrupados.futuras.push(exp);
-      }
+      if (f < hoyStr) agrupados.atrasadas.push(exp);
+      else if (f === hoyStr) agrupados.hoy.push(exp);
     });
   }
 
@@ -277,18 +269,9 @@ export default function Inspector() {
             <ListFilter className="text-blue-900 w-6 h-6" /> Bandeja de Inspecciones
           </h2>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <Calendar className="w-4 h-4 text-slate-500" />
-              <span className="text-sm text-slate-600 font-medium hidden sm:inline">Ver por fecha:</span>
-              <input 
-                type="date" 
-                value={filtroFecha}
-                onChange={(e) => setFiltroFecha(e.target.value)}
-                className="text-sm outline-none bg-transparent cursor-pointer text-slate-700 font-bold"
-              />
-              {filtroFecha && (
-                <button onClick={() => setFiltroFecha('')} className="text-xs text-red-500 hover:underline ml-1 font-bold">Limpiar</button>
-              )}
+            <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200 shadow-sm">
+              <ClipboardCheck className="w-5 h-5 text-blue-600" />
+              <span className="text-sm text-blue-800 font-bold">Lista Diaria de Tareas</span>
             </div>
 
             <Button onClick={cargarExpedientes} isLoading={loading} variant="secondary" className="w-auto px-4 py-2 text-sm bg-white shadow-sm border border-slate-200 text-slate-700 hover:bg-slate-50">
@@ -352,26 +335,16 @@ export default function Inspector() {
             )}
           </div>
         ) : tabActual === 'pendientes' ? (
-          expedientes.length === 0 ? (
+          (agrupados.atrasadas.length === 0 && agrupados.hoy.length === 0) ? (
             <div className="bg-white p-12 rounded-xl shadow border border-slate-200 text-center text-slate-500 font-medium flex flex-col items-center justify-center">
               <ClipboardCheck className="w-16 h-16 text-slate-300 mb-4" />
-              <p className="text-lg">No hay inspecciones pendientes programadas en este momento.</p>
+              <p className="text-lg">No hay inspecciones pendientes programadas para hoy.</p>
               <p className="text-sm font-normal mt-1 text-slate-400">Buen trabajo, la bandeja está limpia.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {filtroFecha ? (
-                 agrupados.filtradas.length > 0 
-                   ? renderGrupo(`🔎 Resultados para la fecha: ${filtroFecha}`, agrupados.filtradas, "text-blue-800 border-blue-300")
-                   : <div className="bg-white p-8 rounded-xl shadow border border-slate-200 text-center text-slate-500">No hay inspecciones programadas para la fecha seleccionada.</div>
-              ) : (
-                <>
-                  {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
-                  {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
-                  {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
-                  {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
-                </>
-              )}
+              {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
+              {renderGrupo("📅 Inspecciones de Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
             </div>
           )
         ) : (
