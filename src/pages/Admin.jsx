@@ -17,8 +17,8 @@ export default function Admin() {
   const [mensajeExito, setMensajeExito] = useState('');
   
   const [tabActual, setTabActual] = useState(() => localStorage.getItem('adminTab') || 'reportes');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  const [fechaInicio] = useState('');
+  const [fechaFin] = useState('');
   const [reporteFinanciero, setReporteFinanciero] = useState(null);
   
   // Expedientes State

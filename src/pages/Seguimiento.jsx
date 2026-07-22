@@ -18,42 +18,6 @@ export default function Seguimiento() {
   const [renovacionLoading, setRenovacionLoading] = useState(false);
   const [renovacionFile, setRenovacionFile] = useState(null);
   const [nuevaLicenciaCodigo, setNuevaLicenciaCodigo] = useState('');
-  const [pagoAprobado, setPagoAprobado] = useState(false);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get('status');
-    const collectionId = urlParams.get('collection_id');
-    
-    if (status === 'approved' || collectionId) {
-      setPagoAprobado(true);
-      const savedState = sessionStorage.getItem('mpt_renovacion_state');
-      
-      if (savedState) {
-        const parsedState = JSON.parse(savedState);
-        
-        const savedPdfName = sessionStorage.getItem('mpt_renovacion_pdf_name');
-        const savedPdfData = sessionStorage.getItem('mpt_renovacion_pdf_data');
-        if (savedPdfName && savedPdfData) {
-          fetch(savedPdfData)
-            .then(res => res.blob())
-            .then(blob => {
-              const recoveredFile = new File([blob], savedPdfName, { type: blob.type || 'application/pdf' });
-              setRenovacionFile(recoveredFile);
-              procesarRenovacionPagada(parsedState, recoveredFile);
-            });
-        } else {
-          procesarRenovacionPagada(parsedState, null);
-        }
-      }
-      
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-       sessionStorage.removeItem('mpt_renovacion_pdf_name');
-       sessionStorage.removeItem('mpt_renovacion_pdf_data');
-       sessionStorage.removeItem('mpt_renovacion_state');
-    }
-  }, []);
 
   const procesarRenovacionPagada = async (state, file) => {
     setRenovacionLoading(true);
@@ -72,9 +36,13 @@ export default function Seguimiento() {
          fechaVisita = await expedientesService.asignarCupoInteligente(nuevoExpediente.id);
       }
 
-      let pdfBase64 = null;
+      let pdfBlobObj = null;
       try {
-        pdfBase64 = pdfGenerator.generarComprobanteSunat(nuevoExpediente, expData.empresas, 3.00, 'Boleta');
+        const { pdfBlob } = pdfGenerator.generarComprobanteSunat(nuevoExpediente, expData.empresas, 3.00, 'Boleta');
+        if (pdfBlob) {
+          const fileName = `comprobante-${nuevoExpediente.codigo}-${Date.now()}.pdf`;
+          pdfBlobObj = await expedientesService.subirDocumento(fileName, pdfBlob, 'planos');
+        }
       } catch (err) { console.error('Error pdf:', err); }
 
       if (expData.empresas.email_contacto) {
@@ -84,7 +52,7 @@ export default function Seguimiento() {
           razonSocial: expData.empresas.razon_social,
           esExpress: state.esExpress,
           tipoComprobante: 'Boleta',
-          adjuntoBase64: pdfBase64,
+          adjuntoUrl: pdfBlobObj,
           tipoNotificacion: 'comprobante_pago'
         }).catch(e => console.error(e));
 
@@ -110,6 +78,41 @@ export default function Seguimiento() {
       sessionStorage.removeItem('mpt_renovacion_state');
     }
   };
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const collectionId = urlParams.get('collection_id');
+    
+    if (status === 'approved' || collectionId) {
+      const savedState = sessionStorage.getItem('mpt_renovacion_state');
+      
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        
+        const savedPdfName = sessionStorage.getItem('mpt_renovacion_pdf_name');
+        const savedPdfData = sessionStorage.getItem('mpt_renovacion_pdf_data');
+        if (savedPdfName && savedPdfData) {
+          fetch(savedPdfData)
+            .then(res => res.blob())
+            .then(blob => {
+              const recoveredFile = new File([blob], savedPdfName, { type: blob.type || 'application/pdf' });
+              setRenovacionFile(recoveredFile);
+              setTimeout(() => procesarRenovacionPagada(parsedState, recoveredFile), 0);
+            });
+        } else {
+          setTimeout(() => procesarRenovacionPagada(parsedState, null), 0);
+        }
+      }
+      
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+       sessionStorage.removeItem('mpt_renovacion_pdf_name');
+       sessionStorage.removeItem('mpt_renovacion_pdf_data');
+       sessionStorage.removeItem('mpt_renovacion_state');
+    }
+  }, []);
+
 
   const handleBuscar = async (e) => {
     e.preventDefault();

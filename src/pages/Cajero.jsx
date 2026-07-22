@@ -12,9 +12,6 @@ export default function Cajero() {
   const [loading, setLoading] = useState(false);
   const [tabActual, setTabActual] = useState('ventanilla');
   const [egresos, setEgresos] = useState([]);
-  const [modalEgreso, setModalEgreso] = useState(false);
-  const [egresoMotivo, setEgresoMotivo] = useState('');
-  const [egresoMonto, setEgresoMonto] = useState(''); // 'ventanilla' | 'historial'
   const [misCierres, setMisCierres] = useState([]);
   
   const [ruc, setRuc] = useState('');
@@ -92,12 +89,16 @@ export default function Cajero() {
 
 
   useEffect(() => {
+    let active = true;
     if (sesionCaja) {
       const saved = localStorage.getItem('egresos_' + sesionCaja.id);
-      if (saved) setEgresos(JSON.parse(saved));
+      if (saved && active) {
+        Promise.resolve().then(() => setEgresos(JSON.parse(saved)));
+      }
     } else {
-      setEgresos([]);
+      if (active) Promise.resolve().then(() => setEgresos([]));
     }
+    return () => { active = false; };
   }, [sesionCaja]);
 
   useEffect(() => {
@@ -138,30 +139,6 @@ export default function Cajero() {
     }
     fetchEmpresaBranch();
   }, [direccionEditada, empresaValidada]);
-
-  const handleRegistrarEgreso = (e) => {
-    e.preventDefault();
-    if (!egresoMotivo || !egresoMonto) return;
-    const newEgresos = [...egresos, { motivo: egresoMotivo, monto: parseFloat(egresoMonto), fecha: new Date().toISOString() }];
-    setEgresos(newEgresos);
-    localStorage.setItem('egresos_' + sesionCaja.id, JSON.stringify(newEgresos));
-    setModalEgreso(false);
-    setEgresoMotivo('');
-    setEgresoMonto('');
-  };
-
-  const handleExtornar = async (expedienteId) => {
-    if (!confirm('¿Está seguro de anular este cobro?')) return;
-    setLoading(true);
-    try {
-      await cajaService.extornarPago(expedienteId);
-      await cargarHistorialTurno(sesionCaja);
-    } catch (err) {
-      alert('Error al extornar: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const abrirCaja = async (e) => {
     e.preventDefault();

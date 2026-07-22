@@ -13,7 +13,7 @@ export default function Inspector() {
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
   const hoyStr = new Date().toISOString().split('T')[0];
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm] = useState('');
 
   const [modalObs, setModalObs] = useState({ 
     visible: false, 
@@ -132,20 +132,6 @@ export default function Inspector() {
     } catch (err) {
       setError('No se pudo procesar el cambio de estado técnico.');
       console.error(err);
-    }
-  };
-
-  const reprogramarVisita = async (inspeccionId, nuevaFecha) => {
-    if (!nuevaFecha) return;
-    setLoading(true);
-    try {
-      await expedientesService.actualizarFechaInspeccion(inspeccionId, nuevaFecha);
-      setMensajeExito('Fecha de inspección reprogramada correctamente.');
-      cargarExpedientes();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
