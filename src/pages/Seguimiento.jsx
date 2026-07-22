@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar } from 'lucide-react';
+import { Search, FileText, CheckCircle, Clock, AlertCircle, XCircle, ArrowLeft, Download, Calendar, RefreshCw } from 'lucide-react';
 import { expedientesService } from '../services/expedientesService';
 import { pdfGenerator } from '../utils/pdfGenerator';
 
@@ -162,34 +162,42 @@ export default function Seguimiento() {
                   <div className="mt-4 pt-3 border-t border-orange-200 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-orange-700" />
                     <p className="text-xs text-orange-800 font-semibold">
-                      El inspector realizará una segunda visita el: <strong>{ultimaInspeccion.fecha_segunda_visita}</strong>
+                      El inspector realizará una segunda visita el: <strong>{ultimaInspeccion.fecha_programada}</strong>
                     </p>
                   </div>
                   
                   {/* Formulario de subsanación */}
-                  <div className="mt-4 pt-4 border-t border-orange-200">
-                    <p className="text-sm font-bold text-orange-900 mb-2">Subsanar Observación (Adjuntar Nuevo Plano):</p>
-                    {subsanacionExito ? (
-                      <div className="bg-green-100 text-green-800 p-3 rounded text-sm font-semibold flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4"/> Documento actualizado correctamente para la segunda visita.
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input 
-                          type="file" accept=".pdf" 
-                          onChange={(e) => setSubsanacionFile(e.target.files[0])}
-                          className="flex-1 text-sm bg-white border border-orange-300 rounded p-2"
-                        />
-                        <button 
-                          onClick={handleSubsanar}
-                          disabled={!subsanacionFile || subsanacionLoading}
-                          className="bg-orange-600 text-white font-bold py-2 px-4 rounded hover:bg-orange-700 disabled:opacity-50 text-sm"
-                        >
-                          {subsanacionLoading ? 'Subiendo...' : 'Enviar Corrección'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {ultimaInspeccion.observaciones?.includes('[REQUIERE NUEVOS PLANOS]') ? (
+                    <div className="mt-4 pt-4 border-t border-orange-200">
+                      <p className="text-sm font-bold text-orange-900 mb-2">Subsanar Observación (Adjuntar Nuevo Plano):</p>
+                      {subsanacionExito ? (
+                        <div className="bg-green-100 text-green-800 p-3 rounded text-sm font-semibold flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4"/> Documento actualizado correctamente para la segunda visita.
+                        </div>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <input 
+                            type="file" accept=".pdf" 
+                            onChange={(e) => setSubsanacionFile(e.target.files[0])}
+                            className="text-sm border border-orange-300 rounded p-1 bg-white flex-1 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          />
+                          <button 
+                            onClick={handleSubsanar}
+                            disabled={!subsanacionFile || subsanacionLoading}
+                            className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-4 py-2 rounded text-sm font-bold transition flex items-center justify-center min-w-[150px]"
+                          >
+                            {subsanacionLoading ? <RefreshCw className="w-4 h-4 animate-spin"/> : 'Enviar Corrección'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-4 pt-4 border-t border-orange-200">
+                      <p className="text-sm text-orange-800 font-semibold flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4"/> Esta observación no requiere subir nuevos planos. Corrija lo indicado para la visita.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

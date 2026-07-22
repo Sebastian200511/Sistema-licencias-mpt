@@ -89,7 +89,7 @@ export const expedientesService = {
     if (!expedientes || expedientes.length === 0) return { tieneTramite: false };
 
     for (const exp of expedientes) {
-      if (['Pendiente', 'En Inspeccion', 'Subsanacion'].includes(exp.estado)) {
+      if (['Pendiente', 'En Inspeccion', 'Subsanacion', 'Observado'].includes(exp.estado)) {
         return { 
           tieneTramite: true, 
           mensaje: `La empresa con RUC ${ruc} ya tiene un trámite en curso (Estado: ${exp.estado}).` 

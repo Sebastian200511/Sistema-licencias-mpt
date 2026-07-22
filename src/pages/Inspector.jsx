@@ -87,7 +87,7 @@ export default function Inspector() {
           expediente_id: expedienteId, 
           fecha_programada: fechaSegundaVisita, 
           estado: 'Programada',
-          observaciones: 'Reprogramación por primera visita observada'
+          observaciones: textoObservacionGenerado
         });
 
         const expData = expedientes.find(e => e.id === expedienteId);

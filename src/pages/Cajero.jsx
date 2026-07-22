@@ -36,7 +36,7 @@ export default function Cajero() {
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [historial, setHistorial] = useState([]);
   const [resumenCierre, setResumenCierre] = useState(null);
-  const TARIFA = 3.00;
+  const [tarifa, setTarifa] = useState(3.00);
 
   const cargarHistorialTurno = useCallback(async (cajaActual) => {
     try {
@@ -250,7 +250,7 @@ export default function Cajero() {
         codigo: codigoExpediente,
         empresa_id: empresaDb.id,
         plano_url: planoPublicUrl,
-        monto_pagado: TARIFA,
+        monto_pagado: tarifa,
         estado: esRenovacionExpress ? 'Aprobado' : 'En Inspeccion',
         modalidad_ingreso: 'Presencial',
         cajero_id: sesionCaja?.cajero_id,
@@ -271,13 +271,20 @@ export default function Cajero() {
       // Generar Comprobante PDF (Boleta o Factura) y obtener base64
       let pdfBase64 = null;
       try {
-        pdfBase64 = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, TARIFA, tipoComprobante);
+        pdfBase64 = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, tarifa, tipoComprobante);
       } catch (pdfErr) {
         console.error("Error generando PDF de comprobante:", pdfErr);
       }
 
       // Disparar correo real usando la Edge Function en segundo plano (sin bloquear UI)
       if (emailContacto) {
+        await cajaService.registrarIngreso({
+        caja_id: sesionCaja.id,
+        expediente_id: resultado.id,
+        monto: tarifa,
+        metodo_pago: metodoPago,
+        tipo_comprobante: tipoComprobante
+      });
         expedientesService.enviarCorreoNotificacion({
           email: emailContacto,
           codigo: codigoExpediente,
@@ -417,10 +424,10 @@ export default function Cajero() {
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
                 <h3 className="text-xl font-bold text-slate-800 mb-2">Calculadora de Vuelto</h3>
-                <div className="bg-slate-100 p-3 rounded-lg mb-4">
-                  <span className="text-sm text-slate-500">Monto a Cobrar</span>
-                  <p className="text-3xl font-black text-slate-800">S/ {TARIFA.toFixed(2)}</p>
-                </div>
+                <div className="bg-slate-50 p-6 rounded-lg text-center mb-6">
+                <span className="text-slate-500 font-bold block mb-2">Monto a Cobrar</span>
+                <span className="text-4xl font-black text-slate-800">S/ {tarifa.toFixed(2)}</span>
+              </div>
                 
                 <div className="text-left mb-4">
                   <label className="text-sm font-bold text-slate-700 block mb-3 text-center">Seleccione el Efectivo Recibido</label>
@@ -430,7 +437,7 @@ export default function Cajero() {
                       <button
                         key={billete}
                         type="button"
-                        disabled={billete < TARIFA}
+                        disabled={billete < tarifa}
                         onClick={() => setEfectivoRecibido(billete.toString())}
                         className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === billete ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'} disabled:opacity-30 disabled:cursor-not-allowed`}
                       >
@@ -439,18 +446,18 @@ export default function Cajero() {
                     ))}
                     <button
                       type="button"
-                      onClick={() => setEfectivoRecibido(TARIFA.toString())}
-                      className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === TARIFA ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
+                      onClick={() => setEfectivoRecibido(tarifa.toString())}
+                      className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === tarifa ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
                     >
                       Exacto
                     </button>
                   </div>
                 </div>
 
-                {efectivoRecibido && Number(efectivoRecibido) >= TARIFA && (
+                {efectivoRecibido && Number(efectivoRecibido) >= tarifa && (
                   <div className="bg-green-100 border border-green-300 p-3 rounded-lg mb-6">
                     <span className="text-sm text-green-800 font-bold">Vuelto a Entregar</span>
-                    <p className="text-4xl font-black text-green-700">S/ {(Number(efectivoRecibido) - TARIFA).toFixed(2)}</p>
+                    <p className="text-4xl font-black text-green-700">S/ {(Number(efectivoRecibido) - tarifa).toFixed(2)}</p>
                   </div>
                 )}
 
@@ -460,7 +467,7 @@ export default function Cajero() {
                     type="button" 
                     variant="success" 
                     className="flex-1" 
-                    disabled={!efectivoRecibido || Number(efectivoRecibido) < TARIFA}
+                    disabled={!efectivoRecibido || Number(efectivoRecibido) < tarifa}
                     onClick={() => {
                       setModalVuelto(false);
                       registrarTramitePresencial();
@@ -499,7 +506,7 @@ export default function Cajero() {
                   Siguiente Trámite
                 </Button>
                 <Button 
-                  onClick={() => pdfGenerator.generarTicketPago(resultadoTramite, empresaValidada, TARIFA, metodoPago)} 
+                  onClick={() => pdfGenerator.generarTicketPago(resultadoTramite, empresaValidada, tarifa, metodoPago)} 
                   variant="primary" 
                   className="w-auto px-6 bg-slate-800 hover:bg-slate-900 border-none"
                 >
@@ -580,7 +587,17 @@ export default function Cajero() {
                      <p className="font-bold">Pago en Caja Municipal</p>
                      <p className="text-xs text-slate-300">Tasa administrativa por Licencia</p>
                    </div>
-                   <p className="text-2xl font-bold font-mono">S/ {TARIFA.toFixed(2)}</p>
+                   <div className="flex items-center">
+                     <span className="text-2xl font-bold font-mono mr-1">S/</span>
+                     <input 
+                       type="number" 
+                       min="0.00"
+                       step="1.00"
+                       value={tarifa} 
+                       onChange={(e) => setTarifa(Number(e.target.value))}
+                       className="text-2xl font-bold font-mono bg-transparent w-24 text-right outline-none border-b border-dashed border-slate-500 focus:border-teal-400 focus:bg-slate-700 rounded px-1"
+                     />
+                   </div>
                 </div>
 
                 <div className="bg-white p-4 border border-x-slate-200 border-b-slate-200">
