@@ -307,18 +307,10 @@ export default function Inspector() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filtroFecha ? (
-                 agrupados.filtradas.length > 0 
-                   ? renderGrupo(`🔎 Resultados para la fecha: ${filtroFecha}`, agrupados.filtradas, "text-blue-800 border-blue-300")
-                   : <div className="bg-white p-8 rounded-xl shadow border border-slate-200 text-center text-slate-500">No hay inspecciones programadas para la fecha seleccionada.</div>
-              ) : (
-                <>
-                  {renderGrupo("⚠️ Atrasadas", agrupados.atrasadas, "text-red-700 border-red-200")}
-                  {renderGrupo("📅 Para Hoy", agrupados.hoy, "text-blue-800 border-blue-200")}
-                  {renderGrupo("⏳ Para Mañana", agrupados.manana, "text-teal-700 border-teal-200")}
-                  {renderGrupo("📆 Futuras", agrupados.futuras, "text-slate-600 border-slate-200")}
-                </>
-              )}
+              {expedientesFiltrados.length > 0 
+                  ? renderGrupo(`Lista de Inspecciones (${expedientesFiltrados.length})`, expedientesFiltrados, "text-slate-800 border-slate-300")
+                  : <div className="bg-white p-8 rounded-xl shadow border border-slate-200 text-center text-slate-500">No se encontraron inspecciones.</div>
+                }
             </div>
           )
         ) : (
