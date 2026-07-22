@@ -602,14 +602,22 @@ export default function Admin() {
                   onChange={(e) => {
                     const nuevoEstado = e.target.value;
                     let nuevaFechaVenc = datosDemo.fecha_vencimiento;
+                    let nuevoIngreso = datosDemo.created_at;
                     
-                    if (nuevoEstado === 'Vencido' || nuevoEstado === 'Aprobado') {
-                       const baseDate = datosDemo.created_at ? new Date(`${datosDemo.created_at}T12:00:00Z`) : new Date();
+                    if (nuevoEstado === 'Aprobado') {
+                       const baseDate = nuevoIngreso ? new Date(`${nuevoIngreso}T12:00:00Z`) : new Date();
                        baseDate.setFullYear(baseDate.getFullYear() + 1);
-                       if (nuevoEstado === 'Vencido') baseDate.setFullYear(baseDate.getFullYear() - 1); // If vencido, it could have expired already
                        nuevaFechaVenc = baseDate.toISOString().split('T')[0];
+                    } else if (nuevoEstado === 'Vencido') {
+                       const ayer = new Date();
+                       ayer.setDate(ayer.getDate() - 1);
+                       nuevaFechaVenc = ayer.toISOString().split('T')[0];
+                       
+                       const haceUnAno = new Date(ayer);
+                       haceUnAno.setFullYear(haceUnAno.getFullYear() - 1);
+                       nuevoIngreso = haceUnAno.toISOString().split('T')[0];
                     }
-                    setDatosDemo({...datosDemo, estado: nuevoEstado, fecha_vencimiento: nuevaFechaVenc});
+                    setDatosDemo({...datosDemo, estado: nuevoEstado, fecha_vencimiento: nuevaFechaVenc, created_at: nuevoIngreso});
                   }}
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
                 >
@@ -634,9 +642,6 @@ export default function Admin() {
                     if (datosDemo.estado === 'Vencido' || datosDemo.estado === 'Aprobado') {
                        const d = new Date(`${fIngreso}T12:00:00Z`);
                        d.setFullYear(d.getFullYear() + 1);
-                       if (datosDemo.estado === 'Vencido') {
-                         d.setFullYear(d.getFullYear() - 2); // Force past date
-                       }
                        nuevaFechaVenc = d.toISOString().split('T')[0];
                     }
                     setDatosDemo({...datosDemo, created_at: fIngreso, fecha_vencimiento: nuevaFechaVenc});
@@ -651,7 +656,13 @@ export default function Admin() {
                   <input 
                     type="date" 
                     value={datosDemo.fecha_vencimiento} 
-                    onChange={(e) => setDatosDemo({...datosDemo, fecha_vencimiento: e.target.value})}
+                    onChange={(e) => {
+                      const fVenc = e.target.value;
+                      const d = new Date(`${fVenc}T12:00:00Z`);
+                      d.setFullYear(d.getFullYear() - 1);
+                      const nuevoIngreso = d.toISOString().split('T')[0];
+                      setDatosDemo({...datosDemo, fecha_vencimiento: fVenc, created_at: nuevoIngreso});
+                    }}
                     className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
                   />
                 </div>
