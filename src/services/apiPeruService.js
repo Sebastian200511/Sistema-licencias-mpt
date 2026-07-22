@@ -4,14 +4,16 @@ export const apiPeruService = {
       throw new Error('El RUC debe tener exactamente 11 dígitos.');
     }
 
-    const token = "364cca4bf910f9177885239542defb801780b66295a179f03a3af80ece5a46d0";
+    const token = "167797c04635f0ccded30d64a1e60f6c8088ecfc1540d88d25cd0d90cdc704df";
     
-    const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
-      method: 'GET',
+    const response = await fetch(`https://api.consultasperu.com/api/v1/query`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ type_document: 'ruc', document_number: ruc })
     });
 
     if (!response.ok) {
@@ -35,5 +37,40 @@ export const apiPeruService = {
     }
 
     return resData.data;
+  },
+
+  consultarRucAnexos: async (ruc) => {
+    if (!ruc || ruc.length !== 11) {
+      throw new Error('El RUC debe tener exactamente 11 dígitos.');
+    }
+
+    const token = "167797c04635f0ccded30d64a1e60f6c8088ecfc1540d88d25cd0d90cdc704df";
+    
+    try {
+      const response = await fetch(`https://api.consultasperu.com/api/v1/query/ruc-anexos`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ ruc: ruc })
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const resData = await response.json();
+      
+      if (!resData?.success || !Array.isArray(resData?.data)) {
+        return [];
+      }
+
+      return resData.data;
+    } catch (err) {
+      console.error("Error fetching branches:", err);
+      return [];
+    }
   }
 };

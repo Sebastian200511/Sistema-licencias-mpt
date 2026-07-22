@@ -31,6 +31,20 @@ export const expedientesService = {
     return urlData.publicUrl;
   },
 
+  subirDocumento: async (fileName, fileBlob, bucket = 'planos') => {
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, fileBlob, { contentType: 'application/pdf', upsert: true });
+
+    if (uploadError) {
+      console.error("Error al subir documento:", uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    return urlData.publicUrl;
+  },
+
   actualizarPlanoExpediente: async (expedienteId, planoUrl) => {
     const { error } = await supabase
       .from('expedientes')
@@ -41,11 +55,19 @@ export const expedientesService = {
   },
 
   // Consultas Internas (Cajero / Inspector)
-  obtenerEmpresaPorRuc: async (ruc) => {
-    const { data, error } = await supabase
+  obtenerEmpresaPorRuc: async (ruc, domicilioFiscal = null) => {
+    let query = supabase
       .from('empresas')
-      .select(`id, email_contacto, expedientes(codigo, estado)`)
-      .eq('ruc', ruc)
+      .select(`id, email_contacto, expedientes(codigo, estado, fecha_vencimiento)`)
+      .eq('ruc', ruc);
+      
+    if (domicilioFiscal) {
+      query = query.eq('domicilio_fiscal', domicilioFiscal);
+    }
+    
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error && error.code !== 'PGRST116') throw error; // Ignorar not found single
@@ -60,7 +82,7 @@ export const expedientesService = {
         razon_social: empresaData.razonSocial,
         domicilio_fiscal: empresaData.domicilioFiscal,
         email_contacto: empresaData.emailContacto
-      }, { onConflict: 'ruc' })
+      }, { onConflict: 'ruc, domicilio_fiscal' })
       .select()
       .single();
 
@@ -68,12 +90,17 @@ export const expedientesService = {
     return data;
   },
 
-  verificarTramiteActivo: async (ruc) => {
-    const { data: empresa, error: errorEmpresa } = await supabase
+  verificarTramiteActivo: async (ruc, domicilioFiscal) => {
+    let query = supabase
       .from('empresas')
       .select('id')
-      .eq('ruc', ruc)
-      .maybeSingle();
+      .eq('ruc', ruc);
+      
+    if (domicilioFiscal) {
+      query = query.eq('domicilio_fiscal', domicilioFiscal);
+    }
+    
+    const { data: empresa, error: errorEmpresa } = await query.limit(1).maybeSingle();
 
     if (errorEmpresa) throw new Error('Error al verificar empresa.');
     if (!empresa) return { tieneTramite: false };
@@ -258,6 +285,30 @@ export const expedientesService = {
       .eq('id', expedienteId);
 
     if (error) throw new Error('Error al cambiar el estado del expediente.');
+
+    // Fetch details to send email
+    const { data: expDetails } = await supabase
+      .from('expedientes')
+      .select('codigo, empresas(email_contacto, razon_social)')
+      .eq('id', expedienteId)
+      .single();
+
+    if (expDetails && expDetails.empresas?.email_contacto) {
+      let tipoNotificacion = '';
+      if (nuevoEstado === 'Aprobado') tipoNotificacion = 'aprobado';
+      else if (nuevoEstado === 'Observado') tipoNotificacion = 'observacion';
+      else if (nuevoEstado === 'Rechazado') tipoNotificacion = 'rechazado';
+      
+      if (tipoNotificacion) {
+        expedientesService.enviarCorreoNotificacion({
+          email: expDetails.empresas.email_contacto,
+          codigo: expDetails.codigo,
+          razonSocial: expDetails.empresas.razon_social,
+          tipoNotificacion: tipoNotificacion,
+          observaciones: nuevoEstado === 'Observado' ? 'El inspector encontró observaciones que deben ser subsanadas.' : ''
+        }).catch(err => console.error("Error enviando correo de estado:", err));
+      }
+    }
   },
 
   enviarCorreoNotificacion: async (datosCorreo) => {

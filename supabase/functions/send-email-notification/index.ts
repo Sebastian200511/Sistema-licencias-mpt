@@ -13,7 +13,7 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress, tipoComprobante, adjuntoBase64 } = body;
+    const { tipoNotificacion, email, codigo, razonSocial, fechaVisita, observaciones, esExpress, tipoComprobante, adjuntoBase64, adjuntoUrl } = body;
 
     let subject = "";
     let htmlContent = "";
@@ -43,7 +43,11 @@ serve(async (req: Request) => {
               <p style="margin: 5px 0 0 0; color: #1e3a8a; font-family: monospace; font-size: 16px;"><strong>Concepto:</strong> Tasa Administrativa</p>
             </div>
             
-            <p style="color: #475569; font-size: 14px; line-height: 1.5;"><em>* El comprobante oficial PDF le fue entregado en ventanilla por nuestro cajero. Si desea una copia digital, ingrese al portal de la MPT con su clave SOL.</em></p>
+            ${adjuntoUrl ? `<div style="text-align: center; margin: 25px 0;">
+              <a href="${adjuntoUrl}" style="background-color: #1e3a8a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Descargar Comprobante PDF</a>
+            </div>` : ''}
+            
+            <p style="color: #475569; font-size: 14px; line-height: 1.5;"><em>* El comprobante oficial PDF le fue entregado en ventanilla por nuestro cajero${adjuntoUrl ? ' (y puede descargarlo en el botón de arriba)' : ''}. Si desea una copia digital, ingrese al portal de la MPT con su clave SOL.</em></p>
           </div>
           <div style="background-color: #f1f5f9; padding: 15px; text-align: center; color: #64748b; font-size: 12px;">
             <p style="margin: 0;">Este es un mensaje automático generado por el Sistema de Licencias MPT.</p>

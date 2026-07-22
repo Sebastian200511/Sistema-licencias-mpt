@@ -413,9 +413,10 @@ export const pdfGenerator = {
     // Guardar localmente
     doc.save(fileName);
     
-    // Retornar base64 para envío por correo
+    // Retornar base64 y blob para uso posterior
     const base64String = doc.output('datauristring').split(',')[1];
-    return base64String;
+    const pdfBlob = doc.output('blob');
+    return { base64String, pdfBlob };
   },
 
   generarTicketZ: (caja) => {

@@ -193,19 +193,9 @@ export default function Inspector() {
                     <div className="mt-2 flex items-center gap-2">
                       <div className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 px-2.5 py-1 rounded text-xs font-semibold border border-slate-200">
                         <Calendar className="w-3.5 h-3.5" /> 
-                        Visita: 
-                        <input 
-                          type="date" 
-                          defaultValue={inspeccionAsignada.fecha_programada}
-                          onChange={(e) => {
-                            if (e.target.value !== inspeccionAsignada.fecha_programada) {
-                              reprogramarVisita(inspeccionAsignada.id, e.target.value);
-                            }
-                          }}
-                          className="bg-transparent outline-none border-b border-slate-300 ml-1 focus:border-blue-500 cursor-pointer"
-                        />
+                        Visita Programada: 
+                        <span className="ml-1 font-bold text-slate-900">{inspeccionAsignada.fecha_programada}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400 italic">Cambiar fecha actualizará el sistema</span>
                     </div>
                   )}
 

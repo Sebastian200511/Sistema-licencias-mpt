@@ -23,6 +23,10 @@ export default function Cajero() {
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [esRenovacionExpress, setEsRenovacionExpress] = useState(false);
   
+  const [sucursales, setSucursales] = useState([]);
+  const [direccionEditada, setDireccionEditada] = useState('');
+  const [isDireccionEditable, setIsDireccionEditable] = useState(false);
+  
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null);
   const [fileObject, setFileObject] = useState(null);
   const [resultadoTramite, setResultadoTramite] = useState(null);
@@ -41,6 +45,8 @@ export default function Cajero() {
   const [historial, setHistorial] = useState([]);
   const [resumenCierre, setResumenCierre] = useState(null);
   const [tarifa, setTarifa] = useState(3.00);
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState('');
+  const [montoYapeMixto, setMontoYapeMixto] = useState('');
 
   const cargarHistorialTurno = useCallback(async (cajaActual) => {
     try {
@@ -93,6 +99,45 @@ export default function Cajero() {
       setEgresos([]);
     }
   }, [sesionCaja]);
+
+  useEffect(() => {
+    async function fetchEmpresaBranch() {
+      if (empresaValidada && direccionEditada) {
+        try {
+          const empresaDb = await expedientesService.obtenerEmpresaPorRuc(empresaValidada.ruc, direccionEditada);
+          if (empresaDb) {
+            if (empresaDb.email_contacto) setEmailContacto(empresaDb.email_contacto);
+            if (empresaDb.expedientes && Array.isArray(empresaDb.expedientes)) {
+              const vencida = empresaDb.expedientes.find(exp => exp?.estado === 'Vencido');
+              if (vencida) {
+                setError(`El RUC ingresado cuenta con una licencia VENCIDA en esta sucursal (Código: ${vencida.codigo}). Por favor indique al contribuyente que realice el trámite de renovación.`);
+                setEmpresaValidada(null);
+                return;
+              }
+
+              const activo = empresaDb.expedientes.find(exp => ['Pendiente', 'En Inspeccion', 'Subsanacion', 'Observado'].includes(exp?.estado));
+              if (activo) {
+                setError(`Ya existe un trámite activo para esta sucursal (Estado: ${activo.estado}). No puede registrar otro.`);
+                setEmpresaValidada(null);
+                return;
+              }
+
+              const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
+              setLicenciaPrevia(aprobada || null); 
+            } else {
+              setLicenciaPrevia(null);
+            }
+          } else {
+            setLicenciaPrevia(null);
+            setEmailContacto('');
+          }
+        } catch (err) {
+          console.error("Error fetching branch data:", err);
+        }
+      }
+    }
+    fetchEmpresaBranch();
+  }, [direccionEditada, empresaValidada]);
 
   const handleRegistrarEgreso = (e) => {
     e.preventDefault();
@@ -195,6 +240,9 @@ export default function Cajero() {
     setEmpresaValidada(null);
     setLicenciaPrevia(null);
     setEsRenovacionExpress(false);
+    setSucursales([]);
+    setDireccionEditada('');
+    setIsDireccionEditable(false);
 
     if (!ruc || ruc.length !== 11) {
       setError('El RUC debe tener exactamente 11 dígitos.');
@@ -218,32 +266,26 @@ export default function Cajero() {
         return;
       }
 
-      // Validar que no tenga tramite activo o licencia vigente antes de continuar
-      const verificacion = await expedientesService.verificarTramiteActivo(data.ruc || ruc);
-      if (verificacion.tieneTramite) {
-        setError(verificacion.mensaje);
-        setBuscandoSunat(false);
-        return;
+      // Consultar anexos
+      const anexos = await apiPeruService.consultarRucAnexos(data.ruc || ruc);
+      if (anexos && anexos.length > 0) {
+        setSucursales(anexos);
       }
 
       const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
+      
+      // La validación de trámite activo se debe hacer al registrar el trámite con la dirección elegida
+      // porque un RUC puede tener un trámite en una sucursal y permitir otro trámite en otra.
 
       setEmpresaValidada({
         ruc: data.ruc || ruc,
         razonSocial: data.nombre_o_razon_social || 'Desconocida',
         domicilioFiscal: direccionMostrar || 'Desconocida'
       });
+      setDireccionEditada(direccionMostrar || 'Desconocida');
 
-      const empresaDb = await expedientesService.obtenerEmpresaPorRuc(data.ruc || ruc);
-      if (empresaDb) {
-        if (empresaDb.email_contacto) {
-          setEmailContacto(empresaDb.email_contacto);
-        }
-        if (empresaDb.expedientes) {
-          const previa = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado' || exp?.estado === 'Vencido');
-          if (previa) setLicenciaPrevia(previa); 
-        }
-      }
+      setDireccionEditada(direccionMostrar || 'Desconocida');
+
     } catch (err) {
       setError(err.message || 'Error de conexión.');
     } finally {
@@ -270,7 +312,7 @@ export default function Cajero() {
     }
 
     try {
-      const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc);
+      const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc, direccionEditada);
       if (verificacion.tieneTramite) {
         setError(verificacion.mensaje);
         setLoading(false);
@@ -280,7 +322,7 @@ export default function Cajero() {
       const empresaDb = await expedientesService.guardarEmpresa({
         ruc: empresaValidada.ruc,
         razonSocial: empresaValidada.razonSocial,
-        domicilioFiscal: empresaValidada.domicilioFiscal,
+        domicilioFiscal: direccionEditada,
         emailContacto: emailContacto
       });
 
@@ -292,11 +334,16 @@ export default function Cajero() {
         planoPublicUrl = await expedientesService.subirPlanoSubsanacion(codigoExpediente, fileObject);
       }
 
+      const montoEfe = metodoPago === 'Mixto' ? (Number(montoEfectivoMixto) || 0) : (metodoPago === 'Efectivo' ? tarifa : 0);
+      const montoYap = metodoPago === 'Mixto' ? (Number(montoYapeMixto) || 0) : (metodoPago === 'Yape' ? tarifa : 0);
+
       const resultado = await expedientesService.crearExpediente({
         codigo: codigoExpediente,
         empresa_id: empresaDb.id,
         plano_url: planoPublicUrl,
         monto_pagado: tarifa,
+        monto_efectivo: montoEfe,
+        monto_yape: montoYap,
         estado: esRenovacionExpress ? 'Aprobado' : 'En Inspeccion',
         modalidad_ingreso: 'Presencial',
         cajero_id: sesionCaja?.cajero_id,
@@ -314,30 +361,27 @@ export default function Cajero() {
         fechaVisita: fechaVisitaAsignada 
       });
 
-      // Generar Comprobante PDF (Boleta o Factura) y obtener base64
-      let pdfBase64 = null;
+      // Generar Comprobante PDF (Boleta o Factura) y subir a Storage
+      let comprobanteUrl = null;
       try {
-        pdfBase64 = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, tarifa, tipoComprobante);
+        const { pdfBlob } = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, tarifa, tipoComprobante);
+        if (pdfBlob) {
+          const fileName = `comprobante-${codigoExpediente}-${Date.now()}.pdf`;
+          comprobanteUrl = await expedientesService.subirDocumento(fileName, pdfBlob, 'planos');
+        }
       } catch (pdfErr) {
         console.error("Error generando PDF de comprobante:", pdfErr);
       }
 
       // Disparar correo real usando la Edge Function en segundo plano (sin bloquear UI)
       if (emailContacto) {
-        await cajaService.registrarIngreso({
-        caja_id: sesionCaja.id,
-        expediente_id: resultado.id,
-        monto: tarifa,
-        metodo_pago: metodoPago,
-        tipo_comprobante: tipoComprobante
-      });
         expedientesService.enviarCorreoNotificacion({
           email: emailContacto,
           codigo: codigoExpediente,
           razonSocial: empresaValidada.razonSocial,
           esExpress: esRenovacionExpress,
           tipoComprobante: tipoComprobante, // Pasamos el tipo al backend
-          adjuntoBase64: pdfBase64, // Mandamos el PDF codificado
+          adjuntoUrl: comprobanteUrl, // Mandamos la URL pública
           tipoNotificacion: 'comprobante_pago' // El correo será un comprobante
         }).catch(err => console.error("Error lanzando correo de comprobante:", err));
 
@@ -470,8 +514,8 @@ export default function Cajero() {
               <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
                 <h3 className="text-xl font-bold text-slate-800 mb-2">Calculadora de Vuelto</h3>
                 <div className="bg-slate-50 p-6 rounded-lg text-center mb-6">
-                <span className="text-slate-500 font-bold block mb-2">Monto a Cobrar</span>
-                <span className="text-4xl font-black text-slate-800">S/ {tarifa.toFixed(2)}</span>
+                <span className="text-slate-500 font-bold block mb-2">Monto en Efectivo a Cobrar</span>
+                <span className="text-4xl font-black text-slate-800">S/ {(metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa).toFixed(2)}</span>
               </div>
                 
                 <div className="text-left mb-4">
@@ -495,7 +539,7 @@ export default function Cajero() {
                       <button
                         key={billete}
                         type="button"
-                        disabled={billete < tarifa}
+                      disabled={billete < (metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa)}
                         onClick={() => setEfectivoRecibido(billete.toString())}
                         className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === billete ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'} disabled:opacity-30 disabled:cursor-not-allowed`}
                       >
@@ -504,18 +548,18 @@ export default function Cajero() {
                     ))}
                     <button
                       type="button"
-                      onClick={() => setEfectivoRecibido(tarifa.toString())}
-                      className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === tarifa ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
+                      onClick={() => setEfectivoRecibido((metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa).toString())}
+                      className={`py-2 rounded font-bold border transition ${Number(efectivoRecibido) === (metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa) ? 'bg-teal-600 text-white border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
                     >
                       Exacto
                     </button>
                   </div>
                 </div>
 
-                {efectivoRecibido && Number(efectivoRecibido) >= tarifa && (
+                {efectivoRecibido && Number(efectivoRecibido) >= (metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa) && (
                   <div className="bg-green-100 border border-green-300 p-3 rounded-lg mb-6">
                     <span className="text-sm text-green-800 font-bold">Vuelto a Entregar</span>
-                    <p className="text-4xl font-black text-green-700">S/ {(Number(efectivoRecibido) - tarifa).toFixed(2)}</p>
+                    <p className="text-4xl font-black text-green-700">S/ {(Number(efectivoRecibido) - (metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa)).toFixed(2)}</p>
                   </div>
                 )}
 
@@ -525,8 +569,14 @@ export default function Cajero() {
                     type="button" 
                     variant="success" 
                     className="flex-1" 
-                    disabled={!efectivoRecibido || Number(efectivoRecibido) < tarifa}
+                    disabled={!efectivoRecibido || Number(efectivoRecibido) < (metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa)}
                     onClick={() => {
+                      const montoRequeridoEfectivo = metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa;
+                      const vuelto = Number(efectivoRecibido) - montoRequeridoEfectivo;
+                      if (vuelto > sesionCaja.monto_inicial) {
+                        alert(`No hay suficiente efectivo en caja para dar este vuelto (Vuelto: S/ ${vuelto.toFixed(2)}, Caja Inicial: S/ ${sesionCaja.monto_inicial.toFixed(2)}). Por favor solicite cambio al supervisor o cobre exacto.`);
+                        return;
+                      }
                       setModalVuelto(false);
                       registrarTramitePresencial();
                     }}
@@ -599,9 +649,37 @@ export default function Cajero() {
             {empresaValidada && (
               <div className="animate-fade-in space-y-6">
                 <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-                  <p className="text-xs text-green-700 font-bold uppercase">Datos Validados (SUNAT)</p>
-                  <p className="font-bold text-slate-800 mt-1">{empresaValidada.razonSocial}</p>
-                  <p className="text-sm text-slate-600">{empresaValidada.domicilioFiscal}</p>
+                  <p className="text-xs text-green-700 font-bold uppercase mb-2">Datos Validados (SUNAT)</p>
+                  <p className="font-bold text-slate-800 mb-2">{empresaValidada.razonSocial}</p>
+                  
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-green-800">Domicilio / Sucursal</label>
+                    <label className="text-xs flex items-center gap-1 cursor-pointer text-green-700 hover:text-green-900">
+                      <input type="checkbox" checked={isDireccionEditable} onChange={(e) => setIsDireccionEditable(e.target.checked)} className="rounded text-green-600 focus:ring-green-500" />
+                      Editar manualmente
+                    </label>
+                  </div>
+                  
+                  {!isDireccionEditable && sucursales.length > 0 ? (
+                    <select 
+                      value={direccionEditada}
+                      onChange={(e) => setDireccionEditada(e.target.value)}
+                      className="w-full p-2 bg-white border border-green-300 rounded text-sm text-slate-700 font-semibold focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none mt-1"
+                    >
+                      <option value={empresaValidada?.domicilioFiscal}>{empresaValidada?.domicilioFiscal} (Principal)</option>
+                      {sucursales.map((sucursal, idx) => (
+                        <option key={idx} value={sucursal.direccion}>{sucursal.direccion} ({sucursal.tipo_establecimiento})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={direccionEditada} 
+                      onChange={(e) => setDireccionEditada(e.target.value)}
+                      disabled={!isDireccionEditable && sucursales.length === 0} 
+                      className={`w-full p-2 bg-white border ${!isDireccionEditable && sucursales.length === 0 ? 'border-green-200 cursor-not-allowed' : 'border-green-300 focus:ring-2 focus:ring-green-500'} rounded text-sm text-slate-700 font-semibold outline-none transition-all mt-1`}
+                    />
+                  )}
                 </div>
 
                 {licenciaPrevia && (
@@ -616,17 +694,17 @@ export default function Cajero() {
 
                 <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-sm">
                   <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-teal-600"/> Correo Electrónico de Contacto
+                    <Mail className="w-4 h-4 text-teal-600"/> Correo(s) Electrónico(s) de Contacto
                   </label>
                   <input 
-                    type="email" 
+                    type="text" 
                     required 
                     value={emailContacto} 
                     onChange={(e) => setEmailContacto(e.target.value)}
-                    placeholder="correo@empresa.com"
+                    placeholder="correo1@empresa.com, correo2@empresa.com"
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-600 outline-none"
                   />
-                  <p className="text-xs text-slate-500 mt-1">Obligatorio para el envío de notificaciones y certificado virtual.</p>
+                  <p className="text-xs text-slate-500 mt-1">Puede ingresar múltiples correos separados por coma (,).</p>
                 </div>
 
                 {!esRenovacionExpress && (
@@ -686,17 +764,53 @@ export default function Cajero() {
                   </div>
                 </div>
 
-                <div className="bg-slate-100 p-4 rounded-b-lg border border-slate-200 border-t-0 flex gap-4">
-                  <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Efectivo' ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
-                    <input type="radio" name="pago" value="Efectivo" className="hidden" checked={metodoPago === 'Efectivo'} onChange={(e) => setMetodoPago(e.target.value)} />
-                    <Banknote className="w-6 h-6 mb-1" />
-                    <span className="font-bold text-sm">Efectivo</span>
-                  </label>
-                  <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Yape' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
-                    <input type="radio" name="pago" value="Yape" className="hidden" checked={metodoPago === 'Yape'} onChange={(e) => setMetodoPago(e.target.value)} />
-                    <Smartphone className="w-6 h-6 mb-1" />
-                    <span className="font-bold text-sm">Yape / Plin</span>
-                  </label>
+                <div className="bg-slate-100 p-4 rounded-b-lg border border-slate-200 border-t-0 flex flex-col gap-4">
+                  <div className="flex gap-4">
+                    <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Efectivo' ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                      <input type="radio" name="pago" value="Efectivo" className="hidden" checked={metodoPago === 'Efectivo'} onChange={(e) => setMetodoPago(e.target.value)} />
+                      <Banknote className="w-6 h-6 mb-1" />
+                      <span className="font-bold text-sm">Efectivo</span>
+                    </label>
+                    <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Yape' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                      <input type="radio" name="pago" value="Yape" className="hidden" checked={metodoPago === 'Yape'} onChange={(e) => setMetodoPago(e.target.value)} />
+                      <Smartphone className="w-6 h-6 mb-1" />
+                      <span className="font-bold text-sm">Yape / Plin</span>
+                    </label>
+                    <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Mixto' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                      <input type="radio" name="pago" value="Mixto" className="hidden" checked={metodoPago === 'Mixto'} onChange={(e) => setMetodoPago(e.target.value)} />
+                      <div className="flex items-center gap-1 mb-1">
+                        <Banknote className="w-5 h-5" />
+                        <span className="text-xl">+</span>
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <span className="font-bold text-sm">Mixto</span>
+                    </label>
+                  </div>
+                  
+                  {metodoPago === 'Mixto' && (
+                    <div className="bg-white p-4 border border-slate-200 rounded flex gap-4">
+                      <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Monto en Efectivo</label>
+                        <div className="flex items-center border border-slate-300 rounded overflow-hidden">
+                          <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
+                          <input 
+                            type="number" min="0" step="0.01" value={montoEfectivoMixto} onChange={(e) => setMontoEfectivoMixto(e.target.value)}
+                            className="w-full p-2 outline-none font-mono" placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Monto en Yape/Plin</label>
+                        <div className="flex items-center border border-slate-300 rounded overflow-hidden">
+                          <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
+                          <input 
+                            type="number" min="0" step="0.01" value={montoYapeMixto} onChange={(e) => setMontoYapeMixto(e.target.value)}
+                            className="w-full p-2 outline-none font-mono" placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3">
@@ -705,13 +819,28 @@ export default function Cajero() {
                   </button>
                   <Button 
                   onClick={() => {
-                    if (!emailContacto || !emailContacto.includes('@')) {
-                      setError('Por favor, ingrese un correo electrónico válido para notificar al ciudadano.');
-                      // Hacer scroll hacia arriba para ver el error
+                    const correos = emailContacto.split(',').map(c => c.trim()).filter(Boolean);
+                    const validos = correos.every(c => c.includes('@'));
+                    
+                    if (correos.length === 0 || !validos) {
+                      setError('Por favor, ingrese correos electrónicos válidos separados por coma.');
                       window.scrollTo(0, 0);
                       return;
                     }
-                    metodoPago === 'Yape' ? registrarTramitePresencial() : setModalVuelto(true)
+                    if (metodoPago === 'Mixto') {
+                      const eff = Number(montoEfectivoMixto) || 0;
+                      const yap = Number(montoYapeMixto) || 0;
+                      if (eff + yap !== tarifa) {
+                        setError(`El pago mixto (S/ ${(eff + yap).toFixed(2)}) no coincide con la tarifa (S/ ${tarifa.toFixed(2)}).`);
+                        window.scrollTo(0, 0);
+                        return;
+                      }
+                      eff > 0 ? setModalVuelto(true) : registrarTramitePresencial();
+                    } else if (metodoPago === 'Yape') {
+                      registrarTramitePresencial();
+                    } else {
+                      setModalVuelto(true);
+                    }
                   }} 
                   isLoading={loading}
                   disabled={(!esRenovacionExpress && !fileObject) || !empresaValidada?.ruc}

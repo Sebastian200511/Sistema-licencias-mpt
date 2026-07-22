@@ -29,10 +29,11 @@ CREATE TABLE public.usuarios_internos (
 -- B. Empresas (Contribuyentes)
 CREATE TABLE public.empresas (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    ruc text NOT NULL UNIQUE,
+    ruc text NOT NULL,
     razon_social text NOT NULL,
     domicilio_fiscal text,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE (ruc, domicilio_fiscal)
 );
 
 -- C. Expedientes (Trámites de Licencia)
@@ -46,7 +47,9 @@ CREATE TABLE public.expedientes (
     cajero_id uuid REFERENCES auth.users(id),
     fecha_vencimiento date,
     monto_pagado numeric DEFAULT 0,
-    metodo_pago text DEFAULT 'Efectivo' CHECK (metodo_pago IN ('Efectivo', 'Yape', 'Transferencia', 'Tarjeta')),
+    monto_efectivo numeric DEFAULT 0,
+    monto_yape numeric DEFAULT 0,
+    metodo_pago text DEFAULT 'Efectivo' CHECK (metodo_pago IN ('Efectivo', 'Yape', 'Transferencia', 'Tarjeta', 'Mixto')),
     created_at timestamp with time zone DEFAULT now()
 );
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
@@ -13,9 +13,53 @@ export default function Login() {
   const [cambiosEstructurales, setCambiosEstructurales] = useState(null);
   const [emailContacto, setEmailContacto] = useState('');
   
+  const [sucursales, setSucursales] = useState([]);
+  const [direccionEditada, setDireccionEditada] = useState('');
+  const [isDireccionEditable, setIsDireccionEditable] = useState(false);
+  
   const [error, setError] = useState('');
   const [buscandoSunat, setBuscandoSunat] = useState(false);
   const [ingresando, setIngresando] = useState(false);
+
+  // Efecto reactivo: cuando cambia la dirección seleccionada, validamos si existe licencia para ESA sucursal
+  useEffect(() => {
+    async function fetchEmpresaBranch() {
+      if (empresaValidada && direccionEditada) {
+        try {
+          const empresaDb = await expedientesService.obtenerEmpresaPorRuc(empresaValidada.ruc, direccionEditada);
+          if (empresaDb) {
+            if (empresaDb.email_contacto) setEmailContacto(empresaDb.email_contacto);
+            if (empresaDb.expedientes && Array.isArray(empresaDb.expedientes)) {
+              const vencida = empresaDb.expedientes.find(exp => exp?.estado === 'Vencido');
+              if (vencida) {
+                setError(`El RUC ingresado cuenta con una licencia VENCIDA en esta sucursal (Código: ${vencida.codigo}). Por favor, utilice la opción "Consultar el estado de mi trámite" para solicitar la Renovación.`);
+                setEmpresaValidada(null);
+                return;
+              }
+
+              const activo = empresaDb.expedientes.find(exp => ['Pendiente', 'En Inspeccion', 'Subsanacion', 'Observado'].includes(exp?.estado));
+              if (activo) {
+                setError(`Ya existe un trámite activo para esta sucursal (Estado: ${activo.estado}). No puede registrar otro.`);
+                setEmpresaValidada(null);
+                return;
+              }
+
+              const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
+              setLicenciaPrevia(aprobada || null); 
+            } else {
+              setLicenciaPrevia(null);
+            }
+          } else {
+            setLicenciaPrevia(null);
+            setEmailContacto('');
+          }
+        } catch (err) {
+          console.error("Error fetching branch data:", err);
+        }
+      }
+    }
+    fetchEmpresaBranch();
+  }, [direccionEditada, empresaValidada]);
 
   const handleConsultarRUC = async (e) => {
     e.preventDefault();
@@ -23,6 +67,9 @@ export default function Login() {
     setEmpresaValidada(null);
     setLicenciaPrevia(null);
     setCambiosEstructurales(null);
+    setSucursales([]);
+    setDireccionEditada('');
+    setIsDireccionEditable(false);
 
     if (!ruc || ruc.length !== 11) {
       setError('El RUC debe tener exactamente 11 dígitos numéricos.');
@@ -47,15 +94,16 @@ export default function Login() {
         return; 
       }
 
-      // Validar que no tenga tramite activo o licencia vigente antes de continuar
-      const verificacion = await expedientesService.verificarTramiteActivo(data.ruc || ruc);
-      if (verificacion.tieneTramite) {
-        setError(verificacion.mensaje);
-        setBuscandoSunat(false);
-        return;
+      // Consultar anexos
+      const anexos = await apiPeruService.consultarRucAnexos(data.ruc || ruc);
+      if (anexos && anexos.length > 0) {
+        setSucursales(anexos);
       }
 
       const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
+      
+      // La validación de trámite activo se debe hacer al enviar el formulario final con la dirección elegida
+      // porque un RUC puede tener un trámite en una sucursal y permitir otro trámite en otra.
 
       setEmpresaValidada({
         ruc: data.ruc || ruc,
@@ -64,21 +112,7 @@ export default function Login() {
         estado: data.estado || data.estado_del_contribuyente || 'NO DEFINIDO',
         condicion: data.condicion || data.condicion_de_domicilio || 'NO DEFINIDO'
       });
-
-      const empresaDb = await expedientesService.obtenerEmpresaPorRuc(data.ruc || ruc);
-
-      if (empresaDb?.expedientes && Array.isArray(empresaDb.expedientes)) {
-        const vencida = empresaDb.expedientes.find(exp => exp?.estado === 'Vencido');
-        if (vencida) {
-          setError(`El RUC ingresado cuenta con una licencia VENCIDA (Código: ${vencida.codigo}). Por favor, utilice la opción "Consultar el estado de mi trámite" que está arriba para ingresar a su panel y solicitar la Renovación.`);
-          setEmpresaValidada(null);
-          setBuscandoSunat(false);
-          return;
-        }
-        
-        const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
-        if (aprobada) setLicenciaPrevia(aprobada); 
-      }
+      setDireccionEditada(direccionMostrar || 'Dirección No Disponible');
 
     } catch (err) {
       setError(err.message || 'Error al validar el RUC.');
@@ -90,9 +124,17 @@ export default function Login() {
   const handleSubmitFinal = async (e) => {
     e.preventDefault();
     if (!empresaValidada) return;
-    
+
+    const correos = emailContacto.split(',').map(c => c.trim()).filter(Boolean);
+    const validos = correos.every(c => c.includes('@'));
+    if (correos.length === 0 || !validos) {
+      setError('Por favor, ingrese correos electrónicos válidos separados por coma.');
+      window.scrollTo(0, 0);
+      return;
+    }
+
     if (licenciaPrevia && cambiosEstructurales === null) {
-      setError('Debe indicar si su local ha sufrido modificaciones físicas.');
+      setError('Debe declarar si hubo cambios estructurales en su local.');
       return;
     }
 
@@ -100,7 +142,7 @@ export default function Login() {
     setError('');
 
     try {
-      const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc);
+      const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc, direccionEditada);
       if (verificacion.tieneTramite) {
         setError(verificacion.mensaje);
         setIngresando(false);
@@ -112,9 +154,9 @@ export default function Login() {
         .upsert({ 
           ruc: empresaValidada.ruc, 
           razon_social: empresaValidada.razonSocial,
-          domicilio_fiscal: empresaValidada.domicilioFiscal,
+          domicilio_fiscal: direccionEditada,
           email_contacto: emailContacto
-        }, { onConflict: 'ruc' })
+        }, { onConflict: 'ruc, domicilio_fiscal' })
         .select()
         .single();
 
@@ -221,13 +263,34 @@ export default function Login() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-green-800 mb-1">Domicilio Fiscal</label>
-                  <input 
-                    type="text" 
-                    value={empresaValidada?.domicilioFiscal || ''} 
-                    disabled 
-                    className="w-full p-2 bg-white border border-green-200 rounded text-sm text-slate-700 font-semibold cursor-not-allowed" 
-                  />
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-green-800">Domicilio / Sucursal</label>
+                    <label className="text-xs flex items-center gap-1 cursor-pointer text-green-700 hover:text-green-900">
+                      <input type="checkbox" checked={isDireccionEditable} onChange={(e) => setIsDireccionEditable(e.target.checked)} className="rounded text-green-600 focus:ring-green-500" />
+                      Editar manualmente
+                    </label>
+                  </div>
+                  
+                  {!isDireccionEditable && sucursales.length > 0 ? (
+                    <select 
+                      value={direccionEditada}
+                      onChange={(e) => setDireccionEditada(e.target.value)}
+                      className="w-full p-2 bg-white border border-green-300 rounded text-sm text-slate-700 font-semibold focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    >
+                      <option value={empresaValidada?.domicilioFiscal}>{empresaValidada?.domicilioFiscal} (Principal)</option>
+                      {sucursales.map((sucursal, idx) => (
+                        <option key={idx} value={sucursal.direccion}>{sucursal.direccion} ({sucursal.tipo_establecimiento})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={direccionEditada} 
+                      onChange={(e) => setDireccionEditada(e.target.value)}
+                      disabled={!isDireccionEditable && sucursales.length === 0} 
+                      className={`w-full p-2 bg-white border ${!isDireccionEditable && sucursales.length === 0 ? 'border-green-200 cursor-not-allowed' : 'border-green-300 focus:ring-2 focus:ring-green-500'} rounded text-sm text-slate-700 font-semibold outline-none transition-all`}
+                    />
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-green-700 mt-1">Estado: <span className="font-bold">{empresaValidada?.estado || 'N/A'}</span> | Condición: <span className="font-bold">{empresaValidada?.condicion || 'N/A'}</span></p>
@@ -236,16 +299,16 @@ export default function Login() {
             </div>
 
             <div className="bg-white border border-slate-200 p-5 rounded-xl mb-4 shadow-sm">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico (Notificaciones)</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Correo(s) Electrónico(s) (Notificaciones)</label>
               <input 
-                type="email" 
+                type="text" 
                 required
                 value={emailContacto}
                 onChange={(e) => setEmailContacto(e.target.value)}
                 className="w-full pl-4 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-900 focus:border-blue-900 transition-all outline-none" 
-                placeholder="ejemplo@empresa.com"
+                placeholder="ejemplo@empresa.com, otro@empresa.com"
               />
-              <p className="text-xs text-slate-500 mt-2">A este correo llegarán las credenciales de seguimiento y fechas de inspección.</p>
+              <p className="text-xs text-slate-500 mt-2">Puede ingresar múltiples correos separados por coma (,). A estos correos llegarán las credenciales de seguimiento y fechas de inspección.</p>
             </div>
 
             {licenciaPrevia && (
