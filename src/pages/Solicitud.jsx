@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FileText, Upload, CreditCard, CheckCircle, ArrowRight, Calendar, Copy } from 'lucide-react';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 import { expedientesService } from '../services/expedientesService';
+import { pdfGenerator } from '../utils/pdfGenerator';
 
 export default function Solicitud() {
 
@@ -233,7 +234,27 @@ export default function Solicitud() {
         fechaVisitaAsignada = await expedientesService.asignarCupoInteligente(expData.id);
       }
 
+      // Generar Comprobante PDF (Boleta por defecto para pagos online)
+      let pdfBase64 = null;
+      try {
+        // Obtenemos pdfGenerator de '../utils/pdfGenerator' (asegúrate de importarlo)
+        pdfBase64 = pdfGenerator.generarComprobanteSunat(expData, { razonSocial }, 3.00, 'Boleta');
+      } catch (pdfErr) {
+        console.error("Error generando PDF de comprobante:", pdfErr);
+      }
+
       if (emailContacto) {
+        // 1. Enviar Comprobante de Pago
+        expedientesService.enviarCorreoNotificacion({
+          email: emailContacto,
+          codigo: codigoExpediente,
+          razonSocial: razonSocial,
+          tipoComprobante: 'Boleta',
+          adjuntoBase64: pdfBase64,
+          tipoNotificacion: 'comprobante_pago'
+        }).catch(err => console.error("Error lanzando correo comprobante:", err));
+
+        // 2. Enviar Confirmación de Trámite/Inspección
         expedientesService.enviarCorreoNotificacion({
           email: emailContacto,
           codigo: codigoExpediente,
@@ -241,7 +262,7 @@ export default function Solicitud() {
           fechaVisita: fechaVisitaAsignada,
           esExpress: esRenovacionExpress,
           tipoNotificacion: esRenovacionExpress ? 'renovacion_express' : 'nueva_inspeccion'
-        }).catch(err => console.error("Error lanzando correo:", err));
+        }).catch(err => console.error("Error lanzando correo trámite:", err));
       }
 
       setResultadoTramite({ 

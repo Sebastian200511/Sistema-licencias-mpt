@@ -409,6 +409,7 @@ export default function Admin() {
                     <th className="p-3">Fecha de Ingreso</th>
                     <th className="p-3">Vencimiento</th>
                     <th className="p-3 text-center">Estado</th>
+                    <th className="p-3">Inspección</th>
                     <th className="p-3 text-right">Monto (S/)</th>
                     {modoDemo && <th className="p-3 text-center text-purple-700">Demo</th>}
                   </tr>
@@ -438,6 +439,12 @@ export default function Admin() {
                           {exp.estado}
                         </span>
                       </td>
+                      <td className="p-3 text-slate-600 font-bold">
+                        {(() => {
+                          const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                          return ultimaInspeccion?.fecha_programada || 'N/A';
+                        })()}
+                      </td>
                       <td className="p-3 text-right font-bold text-slate-700">
                         {Number(exp.monto_pagado).toFixed(2)}
                       </td>
@@ -449,7 +456,15 @@ export default function Admin() {
                               setDatosDemo({
                                 estado: exp.estado,
                                 created_at: new Date(exp.created_at).toISOString().split('T')[0],
-                                fecha_vencimiento: exp.fecha_vencimiento ? new Date(exp.fecha_vencimiento).toISOString().split('T')[0] : ''
+                                fecha_vencimiento: exp.fecha_vencimiento ? new Date(exp.fecha_vencimiento).toISOString().split('T')[0] : '',
+                                fecha_programada: (() => {
+                                  const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                                  return ultimaInspeccion?.fecha_programada || '';
+                                })(),
+                                inspeccion_id: (() => {
+                                  const ultimaInspeccion = exp.inspecciones?.sort((a, b) => new Date(b.fecha_programada) - new Date(a.fecha_programada))[0];
+                                  return ultimaInspeccion?.id || null;
+                                })()
                               });
                             }}
                             className="bg-purple-100 text-purple-700 p-2 rounded hover:bg-purple-200 transition"
@@ -546,6 +561,18 @@ export default function Admin() {
                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
                 />
               </div>
+
+              {datosDemo.inspeccion_id && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Fecha Programada de Inspección</label>
+                  <input 
+                    type="date" 
+                    value={datosDemo.fecha_programada} 
+                    onChange={(e) => setDatosDemo({...datosDemo, fecha_programada: e.target.value})}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                  />
+                </div>
+              )}
               {datosDemo.estado === 'Observado' && (
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Mensaje de Observación (Para el correo)</label>
@@ -578,6 +605,10 @@ export default function Admin() {
                       fecha_vencimiento: datosDemo.fecha_vencimiento ? new Date(`${datosDemo.fecha_vencimiento}T12:00:00Z`).toISOString() : null,
                     };
                     await reportesService.actualizarExpedienteDemo(expedienteEditando.id, camposUpdate);
+                    
+                    if (datosDemo.inspeccion_id && datosDemo.fecha_programada) {
+                      await expedientesService.actualizarFechaInspeccion(datosDemo.inspeccion_id, datosDemo.fecha_programada);
+                    }
                     
                     if (datosDemo.estado === 'Aprobado' || datosDemo.estado === 'Observado') {
                       const expData = expedientes.find(e => e.id === expedienteEditando.id);

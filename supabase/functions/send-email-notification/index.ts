@@ -144,6 +144,36 @@ serve(async (req: Request) => {
           </div>
         </div>
       `;
+    } else if (tipoReal === 'aprobado') {
+      subject = `¡Licencia Aprobada! - Expediente ${codigo}`;
+      htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #15803d; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Municipalidad Provincial de Trujillo</h1>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #15803d; margin-top: 0;">Resolución de Aprobación Emitida</h2>
+            <p style="color: #475569; font-size: 16px;">Estimado(a) representante de <strong>${razonSocial}</strong>,</p>
+            <p style="color: #475569; font-size: 16px;">Nos complace informarle que su trámite (Expediente: <strong>${codigo}</strong>) ha concluido satisfactoriamente tras la evaluación técnica.</p>
+            <p style="color: #475569; font-size: 16px;">Ya puede descargar su <strong>Certificado de Licencia de Funcionamiento</strong> desde nuestro portal web ingresando su código.</p>
+          </div>
+        </div>
+      `;
+    } else if (tipoReal === 'rechazado') {
+      subject = `Resolución de Rechazo Definitivo - Expediente ${codigo}`;
+      htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #1e293b; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Municipalidad Provincial de Trujillo</h1>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #1e293b; margin-top: 0;">Trámite Rechazado o Denegado</h2>
+            <p style="color: #475569; font-size: 16px;">Estimado(a) representante de <strong>${razonSocial}</strong>,</p>
+            <p style="color: #475569; font-size: 16px;">Lamentamos informarle que su trámite (Expediente: <strong>${codigo}</strong>) ha sido <strong>Rechazado o Denegado Definitivamente</strong> por no subsanar las observaciones técnicas en el plazo o por incumplir normas vigentes de seguridad.</p>
+            <p style="color: #475569; font-size: 16px;">Cualquier consulta puede acercarse a mesa de partes de la municipalidad.</p>
+          </div>
+        </div>
+      `;
     }
 
     // === CONFIGURACIÓN DE NODEMAILER (GMAIL) ===

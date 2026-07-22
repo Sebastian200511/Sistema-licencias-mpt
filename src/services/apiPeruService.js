@@ -4,7 +4,7 @@ export const apiPeruService = {
       throw new Error('El RUC debe tener exactamente 11 dígitos.');
     }
 
-    const token = "73aae707fbb5c6faea3a40fd8fbb260bb68b273b73e4c2d5b0be476832ee9d1b";
+    const token = "364cca4bf910f9177885239542defb801780b66295a179f03a3af80ece5a46d0";
     
     const response = await fetch(`https://apiperu.dev/api/ruc/${ruc}`, {
       method: 'GET',

@@ -103,8 +103,19 @@ export default function Inspector() {
         }
 
         setMensajeExito(`Expediente observado. Se programó 2da visita y se notificó al negocio (Fecha: ${fechaSegundaVisita}).`);
+      } else if (nuevoEstado === 'Aprobado' || nuevoEstado === 'Rechazado' || nuevoEstado === 'Denegado Definitivo') {
+        const expData = expedientes.find(e => e.id === expedienteId);
+        if (expData?.empresas?.email_contacto) {
+          expedientesService.enviarCorreoNotificacion({
+            email: expData.empresas.email_contacto,
+            codigo: expData.codigo,
+            razonSocial: expData.empresas.razon_social,
+            tipoNotificacion: nuevoEstado === 'Aprobado' ? 'aprobado' : 'rechazado'
+          }).catch(err => console.error("Error enviando correo resultado final:", err));
+        }
+        setMensajeExito(`Trámite marcado como ${nuevoEstado} y notificado.`);
       } else {
-        setMensajeExito('Se emitió la Resolución de Aprobación.');
+        setMensajeExito('Se actualizó el estado del trámite.');
       }
       cargarExpedientes();
     } catch (err) {

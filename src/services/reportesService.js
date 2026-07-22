@@ -110,7 +110,8 @@ export const reportesService = {
         .from('expedientes')
         .select(`
           id, codigo, estado, modalidad_ingreso, fecha_vencimiento, monto_pagado, metodo_pago, created_at,
-          empresas ( ruc, razon_social )
+          empresas ( ruc, razon_social, email_contacto ),
+          inspecciones ( id, fecha_programada, estado )
         `)
         .order('created_at', { ascending: false });
 
