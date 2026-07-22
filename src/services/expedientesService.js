@@ -134,6 +134,53 @@ export const expedientesService = {
     return data;
   },
 
+  renovarExpediente: async (expedienteAntiguoId, fileObject = null) => {
+    // 1. Obtener datos del expediente antiguo
+    const { data: antiguo, error: errFetch } = await supabase
+      .from('expedientes')
+      .select('*')
+      .eq('id', expedienteAntiguoId)
+      .single();
+      
+    if (errFetch || !antiguo) throw new Error('No se encontró el expediente original para renovar.');
+
+    // 2. Generar nuevo código
+    const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
+    const codigoExpediente = `MPT-2026-${numeroAleatorio}`;
+
+    // 3. Subir nuevo plano si lo hay, si no reciclar el viejo
+    let planoUrl = antiguo.plano_url;
+    if (fileObject) {
+      const fileName = `${codigoExpediente}_${Date.now()}_plano.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(fileName, fileObject, { upsert: true });
+
+      if (uploadError) throw new Error('Error al subir el nuevo plano.');
+      const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(fileName);
+      planoUrl = urlData.publicUrl;
+    }
+
+    // 4. Crear nuevo expediente
+    const nuevoExpediente = {
+      codigo: codigoExpediente,
+      empresa_id: antiguo.empresa_id,
+      plano_url: planoUrl,
+      estado: 'Pendiente',
+      monto_pagado: null,
+      fecha_vencimiento: null
+    };
+
+    const { data, error: errInsert } = await supabase
+      .from('expedientes')
+      .insert([nuevoExpediente])
+      .select()
+      .single();
+
+    if (errInsert) throw new Error(`Error al crear renovación: ${errInsert.message}`);
+    return data;
+  },
+
   asignarCupoInteligente: async (expedienteId) => {
     const { data, error } = await supabase.rpc('asignar_cupo_inspeccion', {
       p_expediente_id: expedienteId

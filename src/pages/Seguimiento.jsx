@@ -14,6 +14,9 @@ export default function Seguimiento() {
   const [subsanacionFile, setSubsanacionFile] = useState(null);
   const [subsanacionLoading, setSubsanacionLoading] = useState(false);
   const [subsanacionExito, setSubsanacionExito] = useState(false);
+  const [renovacionLoading, setRenovacionLoading] = useState(false);
+  const [renovacionFile, setRenovacionFile] = useState(null);
+  const [nuevaLicenciaCodigo, setNuevaLicenciaCodigo] = useState('');
 
   const handleBuscar = async (e) => {
     e.preventDefault();
@@ -67,6 +70,23 @@ export default function Seguimiento() {
         setError('Error al subir documento de subsanación: ' + err.message);
     } finally {
         setSubsanacionLoading(false);
+    }
+  };
+
+  const handleRenovacion = async (esExpress) => {
+    setRenovacionLoading(true);
+    setError('');
+    setNuevaLicenciaCodigo('');
+    try {
+      if (!esExpress && !renovacionFile) {
+        throw new Error('Debe adjuntar el nuevo plano para solicitar la renovación con cambios.');
+      }
+      const nuevoExpediente = await expedientesService.renovarExpediente(tramite.id, esExpress ? null : renovacionFile);
+      setNuevaLicenciaCodigo(nuevoExpediente.codigo);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRenovacionLoading(false);
     }
   };
 
@@ -216,15 +236,76 @@ export default function Seguimiento() {
               {(tramite.estado === 'Aprobado' || tramite.estado === 'Vencido') && (
                 <div className="mt-6 w-full flex flex-col items-center">
                   {(tramite.estado === 'Vencido' || (tramite.fecha_vencimiento && new Date() > new Date(`${tramite.fecha_vencimiento}T23:59:59`))) && (
-                    <div className="w-full bg-red-100 text-red-800 p-4 rounded-lg mb-4 text-sm font-bold border border-red-200 text-center">
-                      ⚠️ Esta licencia ha expirado. Su PDF se generará con marca de agua "VENCIDA". Le invitamos a realizar su trámite de renovación.
+                    <div className="w-full mt-4">
+                      {nuevaLicenciaCodigo ? (
+                        <div className="bg-green-100 border border-green-300 text-green-900 p-6 rounded-lg text-center shadow-lg w-full">
+                          <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
+                          <h4 className="text-xl font-bold mb-2">¡Solicitud de Renovación Creada!</h4>
+                          <p className="mb-2">Su nuevo código de seguimiento es:</p>
+                          <p className="text-3xl font-black text-green-800 mb-4">{nuevaLicenciaCodigo}</p>
+                          <p className="text-sm">Por favor, acérquese a las ventanillas de la Municipalidad para realizar el pago de la tasa de inspección correspondiente. Una vez pagado, su trámite pasará a Inspección.</p>
+                        </div>
+                      ) : (
+                        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
+                          <h4 className="text-lg font-bold text-slate-800 mb-4 text-center">¿Desea renovar su Licencia de Funcionamiento?</h4>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Opcion Express */}
+                            <div className="border-2 border-blue-200 bg-blue-50 p-5 rounded-xl flex flex-col justify-between hover:shadow-lg transition">
+                              <div>
+                                <h5 className="font-black text-blue-900 mb-2 flex items-center gap-2">
+                                  <RefreshCw className="w-5 h-5"/> Renovación Express
+                                </h5>
+                                <p className="text-sm text-blue-800 mb-4 font-medium">Si su local mantiene las mismas medidas y distribución, reciclaremos su plano anterior. (Sin cambios físicos).</p>
+                              </div>
+                              <button 
+                                onClick={() => handleRenovacion(true)}
+                                disabled={renovacionLoading}
+                                className="bg-blue-600 text-white font-bold py-3 px-4 rounded-lg w-full hover:bg-blue-700 disabled:opacity-50 transition"
+                              >
+                                Solicitar Renovación Express
+                              </button>
+                            </div>
+
+                            {/* Opcion Con Cambios */}
+                            <div className="border-2 border-orange-200 bg-orange-50 p-5 rounded-xl flex flex-col justify-between hover:shadow-lg transition">
+                              <div>
+                                <h5 className="font-black text-orange-900 mb-2 flex items-center gap-2">
+                                  <FileText className="w-5 h-5"/> Trámite con Cambios
+                                </h5>
+                                <p className="text-sm text-orange-800 mb-4 font-medium">Si usted ha ampliado o modificado la estructura, la ley exige presentar un nuevo plano actualizado.</p>
+                              </div>
+                              <div>
+                                <input 
+                                  type="file" 
+                                  accept=".pdf" 
+                                  onChange={(e) => setRenovacionFile(e.target.files[0])} 
+                                  className="mb-3 text-sm w-full bg-white border border-orange-300 rounded p-2" 
+                                />
+                                <button 
+                                  onClick={() => handleRenovacion(false)}
+                                  disabled={!renovacionFile || renovacionLoading}
+                                  className="bg-orange-600 text-white font-bold py-3 px-4 rounded-lg w-full hover:bg-orange-700 disabled:opacity-50 transition"
+                                >
+                                  Subir Plano y Solicitar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="w-full bg-red-100 text-red-800 p-4 rounded-lg mt-6 text-sm font-bold border border-red-200 text-center flex items-center justify-center gap-2">
+                        <AlertCircle className="w-5 h-5"/> Esta licencia ha expirado. Su PDF se generará con marca de agua "VENCIDA".
+                      </div>
                     </div>
                   )}
+                  
                   <button 
                     onClick={generarLicenciaPDF}
-                    className="flex items-center gap-2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-lg"
+                    className="mt-4 flex items-center gap-2 bg-slate-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-slate-900 transition shadow-lg"
                   >
-                    <Download className="w-5 h-5" /> Descargar Licencia Oficial (PDF)
+                    <Download className="w-5 h-5" /> Descargar Histórico de Licencia (PDF)
                   </button>
                 </div>
               )}

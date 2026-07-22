@@ -240,8 +240,8 @@ export default function Cajero() {
           setEmailContacto(empresaDb.email_contacto);
         }
         if (empresaDb.expedientes) {
-          const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
-          if (aprobada) setLicenciaPrevia(aprobada); 
+          const previa = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado' || exp?.estado === 'Vencido');
+          if (previa) setLicenciaPrevia(previa); 
         }
       }
     } catch (err) {
