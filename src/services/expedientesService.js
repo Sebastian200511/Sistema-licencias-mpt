@@ -75,19 +75,40 @@ export const expedientesService = {
   },
 
   guardarEmpresa: async (empresaData) => {
-    const { data, error } = await supabase
-      .from('empresas')
-      .upsert({
-        ruc: empresaData.ruc,
-        razon_social: empresaData.razonSocial,
-        domicilio_fiscal: empresaData.domicilioFiscal,
-        email_contacto: empresaData.emailContacto
-      }, { onConflict: 'ruc, domicilio_fiscal' })
-      .select()
-      .single();
+    // Check if it exists first to avoid ON CONFLICT errors
+    let query = supabase.from('empresas').select().eq('ruc', empresaData.ruc);
+    if (empresaData.domicilioFiscal) {
+      query = query.eq('domicilio_fiscal', empresaData.domicilioFiscal);
+    } else {
+      query = query.is('domicilio_fiscal', null);
+    }
+    
+    const { data: existing, error: selectError } = await query.maybeSingle();
+    if (selectError) throw new Error('Error al verificar empresa: ' + selectError.message);
 
-    if (error) throw new Error('Error al guardar datos de la empresa: ' + error.message);
-    return data;
+    if (existing) {
+      const { data, error } = await supabase
+        .from('empresas')
+        .update({ email_contacto: empresaData.emailContacto })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      if (error) throw new Error('Error al actualizar datos de la empresa: ' + error.message);
+      return data;
+    } else {
+      const { data, error } = await supabase
+        .from('empresas')
+        .insert([{
+          ruc: empresaData.ruc,
+          razon_social: empresaData.razonSocial,
+          domicilio_fiscal: empresaData.domicilioFiscal,
+          email_contacto: empresaData.emailContacto
+        }])
+        .select()
+        .single();
+      if (error) throw new Error('Error al guardar datos de la empresa: ' + error.message);
+      return data;
+    }
   },
 
   verificarTramiteActivo: async (ruc, domicilioFiscal) => {
