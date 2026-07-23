@@ -15,7 +15,6 @@ export default function Login() {
   
   const [sucursales, setSucursales] = useState([]);
   const [direccionEditada, setDireccionEditada] = useState('');
-  const [isDireccionEditable, setIsDireccionEditable] = useState(false);
   const [branchError, setBranchError] = useState('');
   
   const [error, setError] = useState('');
@@ -71,7 +70,6 @@ export default function Login() {
     setCambiosEstructurales(null);
     setSucursales([]);
     setDireccionEditada('');
-    setIsDireccionEditable(false);
     setBranchError('');
 
     if (!ruc || ruc.length !== 11) {
@@ -100,7 +98,11 @@ export default function Login() {
       // Consultar anexos
       const anexos = await apiPeruService.consultarRucAnexos(data.ruc || ruc);
       if (anexos && anexos.length > 0) {
-        setSucursales(anexos);
+        const anexosTrujillo = anexos.filter(a => {
+          const ubi = `${a.direccion || ''} ${a.departamento || ''} ${a.provincia || ''} ${a.distrito || ''}`.toUpperCase();
+          return ubi.includes('TRUJILLO');
+        });
+        setSucursales(anexosTrujillo);
       }
 
       const direccionMostrar = `${calle}${distrito ? ', ' + distrito : ''}${provincia ? ' - ' + provincia : ''}`;
@@ -278,13 +280,9 @@ export default function Login() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-xs font-bold text-green-800">Domicilio / Sucursal</label>
-                    <label className="text-xs flex items-center gap-1 cursor-pointer text-green-700 hover:text-green-900">
-                      <input type="checkbox" checked={isDireccionEditable} onChange={(e) => setIsDireccionEditable(e.target.checked)} className="rounded text-green-600 focus:ring-green-500" />
-                      Editar manualmente
-                    </label>
                   </div>
                   
-                  {!isDireccionEditable && sucursales.length > 0 ? (
+                  {sucursales.length > 0 ? (
                     <select 
                       value={direccionEditada}
                       onChange={(e) => setDireccionEditada(e.target.value)}
@@ -299,9 +297,8 @@ export default function Login() {
                     <input 
                       type="text" 
                       value={direccionEditada} 
-                      onChange={(e) => setDireccionEditada(e.target.value)}
-                      disabled={!isDireccionEditable && sucursales.length === 0} 
-                      className={`w-full p-2 bg-white border ${!isDireccionEditable && sucursales.length === 0 ? 'border-green-200 cursor-not-allowed' : 'border-green-300 focus:ring-2 focus:ring-green-500'} rounded text-sm text-slate-700 font-semibold outline-none transition-all`}
+                      disabled 
+                      className="w-full p-2 bg-slate-100 border border-green-200 cursor-not-allowed rounded text-sm text-slate-700 font-semibold outline-none transition-all"
                     />
                   )}
                 </div>
