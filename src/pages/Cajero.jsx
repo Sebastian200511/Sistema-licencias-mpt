@@ -369,8 +369,12 @@ export default function Cajero() {
 
       // Generar Comprobante PDF (Boleta o Factura) y subir a Storage
       let comprobanteUrl = null;
+      let comprobanteBase64 = null;
       try {
-        const { pdfBlob } = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, tarifa, tipoComprobante);
+        const { pdfBlob, base64String } = pdfGenerator.generarComprobanteSunat(resultado, empresaDb, tarifa, tipoComprobante);
+        if (base64String) {
+          comprobanteBase64 = base64String;
+        }
         if (pdfBlob) {
           const fileName = `comprobante-${codigoExpediente}-${Date.now()}.pdf`;
           comprobanteUrl = await expedientesService.subirDocumento(fileName, pdfBlob, 'planos');
@@ -388,6 +392,7 @@ export default function Cajero() {
           esExpress: esRenovacionExpress,
           tipoComprobante: tipoComprobante, // Pasamos el tipo al backend
           adjuntoUrl: comprobanteUrl, // Mandamos la URL pública
+          adjuntoBase64: comprobanteBase64, // Mandamos el PDF en base64 directamente
           tipoNotificacion: 'comprobante_pago' // El correo será un comprobante
         }).catch(err => console.error("Error lanzando correo de comprobante:", err));
 
