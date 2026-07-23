@@ -209,6 +209,16 @@ export const pdfGenerator = {
     doc.text(": SOLES", 40, yOffset);
     yOffset += 5;
     
+    doc.text("Forma de Pago", 10, yOffset);
+    let fp = (tramite.metodo_pago || 'CONTADO').toUpperCase();
+    if (fp === 'DOBLE YAPE') {
+      fp += ` (S/${tramite.monto_yape_1 || 0} + S/${tramite.monto_yape_2 || 0})`;
+    } else if (fp === 'MIXTO') {
+      fp += ` (EFE: S/${tramite.monto_efectivo || 0}, YPE: S/${tramite.monto_yape || 0})`;
+    }
+    doc.text(`: ${fp}`, 40, yOffset);
+    yOffset += 5;
+
     doc.text("Observación", 10, yOffset);
     doc.text(":", 40, yOffset);
     yOffset += 7;

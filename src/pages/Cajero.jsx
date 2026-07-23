@@ -40,9 +40,11 @@ export default function Cajero() {
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [historial, setHistorial] = useState([]);
   const [resumenCierre, setResumenCierre] = useState(null);
-  const [tarifa, setTarifa] = useState(3.00);
+  const [tarifa] = useState(180.00);
   const [montoEfectivoMixto, setMontoEfectivoMixto] = useState('');
   const [montoYapeMixto, setMontoYapeMixto] = useState('');
+  const [montoYape1, setMontoYape1] = useState('');
+  const [montoYape2, setMontoYape2] = useState('');
 
   const cargarHistorialTurno = useCallback(async (cajaActual) => {
     try {
@@ -298,6 +300,15 @@ export default function Cajero() {
       setLoading(false);
       return;
     }
+    if (metodoPago === 'Doble Yape') {
+      const y1 = Number(montoYape1) || 0;
+      const y2 = Number(montoYape2) || 0;
+      if (y1 + y2 !== tarifa) {
+        setError(`La suma de los dos Yapes (S/ ${y1 + y2}) debe ser exactamente igual a la tarifa de S/ ${tarifa}.`);
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       const verificacion = await expedientesService.verificarTramiteActivo(empresaValidada.ruc, direccionEditada);
@@ -323,7 +334,9 @@ export default function Cajero() {
       }
 
       const montoEfe = metodoPago === 'Mixto' ? (Number(montoEfectivoMixto) || 0) : (metodoPago === 'Efectivo' ? tarifa : 0);
-      const montoYap = metodoPago === 'Mixto' ? (Number(montoYapeMixto) || 0) : (metodoPago === 'Yape' ? tarifa : 0);
+      const montoYap = metodoPago === 'Mixto' ? (Number(montoYapeMixto) || 0) : 
+                       metodoPago === 'Doble Yape' ? ((Number(montoYape1) || 0) + (Number(montoYape2) || 0)) :
+                       (metodoPago === 'Yape' ? tarifa : 0);
 
       const resultado = await expedientesService.crearExpediente({
         codigo: codigoExpediente,
@@ -337,6 +350,11 @@ export default function Cajero() {
         cajero_id: sesionCaja?.cajero_id,
         metodo_pago: metodoPago
       });
+      
+      if (metodoPago === 'Doble Yape') {
+        resultado.monto_yape_1 = Number(montoYape1);
+        resultado.monto_yape_2 = Number(montoYape2);
+      }
 
       let fechaVisitaAsignada = null;
       if (!esRenovacionExpress) {
@@ -719,8 +737,8 @@ export default function Cajero() {
                        min="0.00"
                        step="1.00"
                        value={tarifa} 
-                       onChange={(e) => setTarifa(Number(e.target.value))}
-                       className="text-2xl font-bold font-mono bg-transparent w-24 text-right outline-none border-b border-dashed border-slate-500 focus:border-teal-400 focus:bg-slate-700 rounded px-1"
+                       disabled
+                       className="text-2xl font-bold font-mono bg-transparent w-24 text-right outline-none text-slate-300 rounded px-1 cursor-not-allowed"
                      />
                    </div>
                 </div>
@@ -765,6 +783,15 @@ export default function Cajero() {
                       <Smartphone className="w-6 h-6 mb-1" />
                       <span className="font-bold text-sm">Yape / Plin</span>
                     </label>
+                    <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Doble Yape' ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                      <input type="radio" name="pago" value="Doble Yape" className="hidden" checked={metodoPago === 'Doble Yape'} onChange={(e) => setMetodoPago(e.target.value)} />
+                      <div className="flex items-center gap-1 mb-1">
+                        <Smartphone className="w-4 h-4" />
+                        <span className="text-sm">+</span>
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <span className="font-bold text-sm text-center leading-tight">Doble<br/>Yape</span>
+                    </label>
                     <label className={`flex-1 flex flex-col items-center p-3 rounded-lg cursor-pointer border-2 transition ${metodoPago === 'Mixto' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
                       <input type="radio" name="pago" value="Mixto" className="hidden" checked={metodoPago === 'Mixto'} onChange={(e) => setMetodoPago(e.target.value)} />
                       <div className="flex items-center gap-1 mb-1">
@@ -776,15 +803,40 @@ export default function Cajero() {
                     </label>
                   </div>
                   
+                  {metodoPago === 'Doble Yape' && (
+                    <div className="bg-white p-4 border border-slate-200 rounded flex gap-4 animate-fade-in">
+                      <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">1er Monto Yape/Plin</label>
+                        <div className="flex items-center border border-slate-300 rounded overflow-hidden">
+                          <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
+                          <input 
+                            type="number" min="0" step="0.01" value={montoYape1} onChange={(e) => setMontoYape1(e.target.value)}
+                            className="w-full p-2 outline-none font-mono focus:bg-pink-50" placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">2do Monto Yape/Plin</label>
+                        <div className="flex items-center border border-slate-300 rounded overflow-hidden">
+                          <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
+                          <input 
+                            type="number" min="0" step="0.01" value={montoYape2} onChange={(e) => setMontoYape2(e.target.value)}
+                            className="w-full p-2 outline-none font-mono focus:bg-pink-50" placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {metodoPago === 'Mixto' && (
-                    <div className="bg-white p-4 border border-slate-200 rounded flex gap-4">
+                    <div className="bg-white p-4 border border-slate-200 rounded flex gap-4 animate-fade-in">
                       <div className="flex-1">
                         <label className="text-xs font-bold text-slate-600 block mb-1">Monto en Efectivo</label>
                         <div className="flex items-center border border-slate-300 rounded overflow-hidden">
                           <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
                           <input 
                             type="number" min="0" step="0.01" value={montoEfectivoMixto} onChange={(e) => setMontoEfectivoMixto(e.target.value)}
-                            className="w-full p-2 outline-none font-mono" placeholder="0.00"
+                            className="w-full p-2 outline-none font-mono focus:bg-green-50" placeholder="0.00"
                           />
                         </div>
                       </div>
@@ -794,7 +846,7 @@ export default function Cajero() {
                           <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
                           <input 
                             type="number" min="0" step="0.01" value={montoYapeMixto} onChange={(e) => setMontoYapeMixto(e.target.value)}
-                            className="w-full p-2 outline-none font-mono" placeholder="0.00"
+                            className="w-full p-2 outline-none font-mono focus:bg-purple-50" placeholder="0.00"
                           />
                         </div>
                       </div>
