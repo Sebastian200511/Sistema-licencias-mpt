@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer } from 'lucide-react';
+import { Building2, Search, CheckCircle, ArrowRight, RefreshCcw, Hammer, ShieldAlert } from 'lucide-react';
 import { apiPeruService } from '../services/apiPeruService';
 import { expedientesService } from '../services/expedientesService';
 import { supabase } from '../supabaseClient';
@@ -16,6 +16,7 @@ export default function Login() {
   const [sucursales, setSucursales] = useState([]);
   const [direccionEditada, setDireccionEditada] = useState('');
   const [isDireccionEditable, setIsDireccionEditable] = useState(false);
+  const [branchError, setBranchError] = useState('');
   
   const [error, setError] = useState('');
   const [buscandoSunat, setBuscandoSunat] = useState(false);
@@ -30,17 +31,18 @@ export default function Login() {
           if (empresaDb) {
             if (empresaDb.email_contacto) setEmailContacto(empresaDb.email_contacto);
             if (empresaDb.expedientes && Array.isArray(empresaDb.expedientes)) {
+              setBranchError('');
               const vencida = empresaDb.expedientes.find(exp => exp?.estado === 'Vencido');
               if (vencida) {
-                setError(`El RUC ingresado cuenta con una licencia VENCIDA en esta sucursal (Código: ${vencida.codigo}). Por favor, utilice la opción "Consultar el estado de mi trámite" para solicitar la Renovación.`);
-                setEmpresaValidada(null);
+                setBranchError(`Licencia VENCIDA en esta sucursal (Código: ${vencida.codigo}). Utilice "Consultar el estado de mi trámite" para renovar.`);
+                setLicenciaPrevia(null);
                 return;
               }
 
               const activo = empresaDb.expedientes.find(exp => ['Pendiente', 'En Inspeccion', 'Subsanacion', 'Observado'].includes(exp?.estado));
               if (activo) {
-                setError(`Ya existe un trámite activo para esta sucursal (Estado: ${activo.estado}). No puede registrar otro.`);
-                setEmpresaValidada(null);
+                setBranchError(`Ya existe un trámite activo para esta sucursal (Estado: ${activo.estado}). No puede registrar otro.`);
+                setLicenciaPrevia(null);
                 return;
               }
 
@@ -70,6 +72,7 @@ export default function Login() {
     setSucursales([]);
     setDireccionEditada('');
     setIsDireccionEditable(false);
+    setBranchError('');
 
     if (!ruc || ruc.length !== 11) {
       setError('El RUC debe tener exactamente 11 dígitos numéricos.');
@@ -135,6 +138,16 @@ export default function Login() {
 
     if (licenciaPrevia && cambiosEstructurales === null) {
       setError('Debe declarar si hubo cambios estructurales en su local.');
+      return;
+    }
+
+    if (branchError && branchError.includes('activo')) {
+      setError(branchError);
+      return;
+    }
+
+    if (branchError && branchError.includes('VENCIDA')) {
+      setError(branchError);
       return;
     }
 
@@ -292,11 +305,32 @@ export default function Login() {
                     />
                   )}
                 </div>
+                {branchError && (
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 flex items-start gap-2 mt-2">
+                    <span className="font-bold text-red-700 text-sm">{branchError}</span>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-green-700 mt-1">Estado: <span className="font-bold">{empresaValidada?.estado || 'N/A'}</span> | Condición: <span className="font-bold">{empresaValidada?.condicion || 'N/A'}</span></p>
                 </div>
               </div>
             </div>
+            {licenciaPrevia && !branchError && (
+              <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-xl mb-4 shadow-sm animate-fade-in">
+                <p className="font-bold text-yellow-800 mb-2 flex items-center gap-2"><ShieldAlert className="w-5 h-5"/> Renovación Automática</p>
+                <p className="text-sm text-yellow-700 mb-3">La empresa cuenta con una licencia anterior. ¿Realizó algún cambio estructural en el establecimiento?</p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border rounded shadow-sm hover:bg-slate-50">
+                    <input type="radio" name="cambios" checked={cambiosEstructurales === true} onChange={() => setCambiosEstructurales(true)} className="text-yellow-600 focus:ring-yellow-500 w-4 h-4"/>
+                    <span className="text-sm font-semibold text-slate-700">Sí (Requiere Inspección)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border rounded shadow-sm hover:bg-slate-50">
+                    <input type="radio" name="cambios" checked={cambiosEstructurales === false} onChange={() => setCambiosEstructurales(false)} className="text-yellow-600 focus:ring-yellow-500 w-4 h-4"/>
+                    <span className="text-sm font-semibold text-slate-700">No (Renovación Express)</span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="bg-white border border-slate-200 p-5 rounded-xl mb-4 shadow-sm">
               <label className="block text-sm font-bold text-slate-700 mb-2">Correo(s) Electrónico(s) (Notificaciones)</label>

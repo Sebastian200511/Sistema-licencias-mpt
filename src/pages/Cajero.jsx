@@ -23,8 +23,8 @@ export default function Cajero() {
   const [sucursales, setSucursales] = useState([]);
   const [direccionEditada, setDireccionEditada] = useState('');
   const [isDireccionEditable, setIsDireccionEditable] = useState(false);
-  
   const [planoSeleccionado, setPlanoSeleccionado] = useState(null);
+  const [branchError, setBranchError] = useState('');
   const [fileObject, setFileObject] = useState(null);
   const [resultadoTramite, setResultadoTramite] = useState(null);
   const [emailContacto, setEmailContacto] = useState('');
@@ -109,23 +109,24 @@ export default function Cajero() {
           if (empresaDb) {
             if (empresaDb.email_contacto) setEmailContacto(empresaDb.email_contacto);
             if (empresaDb.expedientes && Array.isArray(empresaDb.expedientes)) {
+              setBranchError('');
               const vencida = empresaDb.expedientes.find(exp => exp?.estado === 'Vencido');
               if (vencida) {
-                setError(`El RUC ingresado cuenta con una licencia VENCIDA en esta sucursal (Código: ${vencida.codigo}). Por favor indique al contribuyente que realice el trámite de renovación.`);
-                setEmpresaValidada(null);
+                setLicenciaPrevia(vencida);
                 return;
               }
 
               const activo = empresaDb.expedientes.find(exp => ['Pendiente', 'En Inspeccion', 'Subsanacion', 'Observado'].includes(exp?.estado));
               if (activo) {
-                setError(`Ya existe un trámite activo para esta sucursal (Estado: ${activo.estado}). No puede registrar otro.`);
-                setEmpresaValidada(null);
+                setBranchError(`Ya existe un trámite activo para esta sucursal (Estado: ${activo.estado}). No puede registrar otro.`);
+                setLicenciaPrevia(null);
                 return;
               }
 
               const aprobada = empresaDb.expedientes.find(exp => exp?.estado === 'Aprobado');
               setLicenciaPrevia(aprobada || null); 
             } else {
+              setBranchError('');
               setLicenciaPrevia(null);
             }
           } else {
@@ -209,6 +210,7 @@ export default function Cajero() {
     setEfectivoRecibido('');
     setEmailContacto('');
     setError('');
+    setBranchError('');
   };
 
   const handleConsultarRUC = async (e) => {
@@ -220,6 +222,7 @@ export default function Cajero() {
     setSucursales([]);
     setDireccionEditada('');
     setIsDireccionEditable(false);
+    setBranchError('');
 
     if (!ruc || ruc.length !== 11) {
       setError('El RUC debe tener exactamente 11 dígitos.');
@@ -284,6 +287,12 @@ export default function Cajero() {
 
     if (!esRenovacionExpress && !fileObject) {
       setError('Debe adjuntar el plano estructural para un trámite nuevo.');
+      setLoading(false);
+      return;
+    }
+    
+    if (branchError && branchError.includes('trámite activo')) {
+      setError(branchError);
       setLoading(false);
       return;
     }
@@ -658,6 +667,12 @@ export default function Cajero() {
                     />
                   )}
                 </div>
+
+                {branchError && (
+                  <div className="bg-red-50 p-3 rounded-lg border border-red-200 mt-2 flex items-start gap-2">
+                    <span className="font-bold text-red-700">{branchError}</span>
+                  </div>
+                )}
 
                 {licenciaPrevia && (
                   <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">

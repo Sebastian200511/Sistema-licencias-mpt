@@ -9,11 +9,14 @@ export const apiPeruService = {
     const response = await fetch(`https://api.consultasperu.com/api/v1/query`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ type_document: 'ruc', document_number: ruc })
+      body: JSON.stringify({ 
+        token: token, 
+        type_document: 'ruc', 
+        document_number: ruc 
+      })
     });
 
     if (!response.ok) {
@@ -26,8 +29,8 @@ export const apiPeruService = {
       throw new Error(resData?.message || 'RUC inválido o no encontrado en SUNAT.');
     }
 
-    const estado = resData.data.estado || resData.data.estado_del_contribuyente;
-    const condicion = resData.data.condicion || resData.data.condicion_de_domicilio;
+    const estado = resData.data.status || resData.data.estado || resData.data.estado_del_contribuyente;
+    const condicion = resData.data.domicile_conditions || resData.data.condicion || resData.data.condicion_de_domicilio;
 
     if (estado !== 'ACTIVO') {
       throw new Error(`El RUC no está ACTIVO. Estado actual: ${estado}`);
@@ -36,7 +39,17 @@ export const apiPeruService = {
       throw new Error(`La condición del domicilio no es HABIDO. Condición actual: ${condicion}`);
     }
 
-    return resData.data;
+    // Map to expected format
+    return {
+      ruc: resData.data.number || resData.data.ruc,
+      nombre_o_razon_social: resData.data.name || resData.data.nombre_o_razon_social,
+      estado: estado,
+      condicion: condicion,
+      direccion: resData.data.address || resData.data.direccion,
+      departamento: resData.data.department || resData.data.departamento,
+      provincia: resData.data.province || resData.data.provincia,
+      distrito: resData.data.district || resData.data.distrito
+    };
   },
 
   consultarRucAnexos: async (ruc) => {
@@ -50,11 +63,10 @@ export const apiPeruService = {
       const response = await fetch(`https://api.consultasperu.com/api/v1/query/ruc-anexos`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ ruc: ruc })
+        body: JSON.stringify({ token: token, ruc: ruc })
       });
 
       if (!response.ok) {
