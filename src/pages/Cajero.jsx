@@ -411,6 +411,50 @@ export default function Cajero() {
     }
   };
 
+  const handleMontoYape1Change = (e) => {
+    const val = e.target.value;
+    setMontoYape1(val);
+    if (val !== '' && !isNaN(val)) {
+      const remaining = tarifa - Number(val);
+      setMontoYape2(remaining >= 0 ? remaining.toFixed(2) : '0.00');
+    } else {
+      setMontoYape2('');
+    }
+  };
+
+  const handleMontoYape2Change = (e) => {
+    const val = e.target.value;
+    setMontoYape2(val);
+    if (val !== '' && !isNaN(val)) {
+      const remaining = tarifa - Number(val);
+      setMontoYape1(remaining >= 0 ? remaining.toFixed(2) : '0.00');
+    } else {
+      setMontoYape1('');
+    }
+  };
+
+  const handleMontoEfectivoMixtoChange = (e) => {
+    const val = e.target.value;
+    setMontoEfectivoMixto(val);
+    if (val !== '' && !isNaN(val)) {
+      const remaining = tarifa - Number(val);
+      setMontoYapeMixto(remaining >= 0 ? remaining.toFixed(2) : '0.00');
+    } else {
+      setMontoYapeMixto('');
+    }
+  };
+
+  const handleMontoYapeMixtoChange = (e) => {
+    const val = e.target.value;
+    setMontoYapeMixto(val);
+    if (val !== '' && !isNaN(val)) {
+      const remaining = tarifa - Number(val);
+      setMontoEfectivoMixto(remaining >= 0 ? remaining.toFixed(2) : '0.00');
+    } else {
+      setMontoEfectivoMixto('');
+    }
+  };
+
   return (
     <div className="bg-slate-100 p-6 min-h-screen">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -810,7 +854,7 @@ export default function Cajero() {
                         <div className="flex items-center border border-slate-300 rounded overflow-hidden">
                           <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
                           <input 
-                            type="number" min="0" step="0.01" value={montoYape1} onChange={(e) => setMontoYape1(e.target.value)}
+                            type="number" min="0" step="0.01" value={montoYape1} onChange={handleMontoYape1Change}
                             className="w-full p-2 outline-none font-mono focus:bg-pink-50" placeholder="0.00"
                           />
                         </div>
@@ -820,7 +864,7 @@ export default function Cajero() {
                         <div className="flex items-center border border-slate-300 rounded overflow-hidden">
                           <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
                           <input 
-                            type="number" min="0" step="0.01" value={montoYape2} onChange={(e) => setMontoYape2(e.target.value)}
+                            type="number" min="0" step="0.01" value={montoYape2} onChange={handleMontoYape2Change}
                             className="w-full p-2 outline-none font-mono focus:bg-pink-50" placeholder="0.00"
                           />
                         </div>
@@ -835,7 +879,7 @@ export default function Cajero() {
                         <div className="flex items-center border border-slate-300 rounded overflow-hidden">
                           <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
                           <input 
-                            type="number" min="0" step="0.01" value={montoEfectivoMixto} onChange={(e) => setMontoEfectivoMixto(e.target.value)}
+                            type="number" min="0" step="0.01" value={montoEfectivoMixto} onChange={handleMontoEfectivoMixtoChange}
                             className="w-full p-2 outline-none font-mono focus:bg-green-50" placeholder="0.00"
                           />
                         </div>
@@ -845,7 +889,7 @@ export default function Cajero() {
                         <div className="flex items-center border border-slate-300 rounded overflow-hidden">
                           <span className="bg-slate-100 px-3 py-2 text-slate-600 font-bold border-r border-slate-300">S/</span>
                           <input 
-                            type="number" min="0" step="0.01" value={montoYapeMixto} onChange={(e) => setMontoYapeMixto(e.target.value)}
+                            type="number" min="0" step="0.01" value={montoYapeMixto} onChange={handleMontoYapeMixtoChange}
                             className="w-full p-2 outline-none font-mono focus:bg-purple-50" placeholder="0.00"
                           />
                         </div>
