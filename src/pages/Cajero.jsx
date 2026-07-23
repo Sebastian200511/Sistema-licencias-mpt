@@ -575,7 +575,7 @@ export default function Cajero() {
                      <span className="text-xl font-bold font-mono mr-2 text-slate-600">S/</span>
                      <input 
                        type="number"
-                       min={tarifa}
+                       min={metodoPago === 'Mixto' ? Number(montoEfectivoMixto) || 0 : tarifa}
                        step="0.10"
                        value={efectivoRecibido}
                        onChange={(e) => setEfectivoRecibido(e.target.value)}
@@ -921,7 +921,7 @@ export default function Cajero() {
                         return;
                       }
                       eff > 0 ? setModalVuelto(true) : registrarTramitePresencial();
-                    } else if (metodoPago === 'Yape') {
+                    } else if (metodoPago === 'Yape' || metodoPago === 'Doble Yape') {
                       registrarTramitePresencial();
                     } else {
                       setModalVuelto(true);
